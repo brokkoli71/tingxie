@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>听写 · Diktat-Trainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper: #f1ede2;
+    --paper-line: #b9c3cf;
+    --ink: #211f1a;
+    --ink-soft: #57534a;
+    --seal: #b3352a;
+    --seal-dark: #8c2a21;
+    --jade: #3d6a55;
+    --jade-soft: #e4ede8;
+    --card: #fbf9f3;
+    --shadow: rgba(33,31,26,0.14);
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin:0; padding:0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Source Serif 4", Georgia, serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    min-height: 100vh;
+    display:flex;
+    justify-content:center;
+    padding: 28px 16px 60px;
+    background-image:
+      linear-gradient(var(--paper-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--paper-line) 1px, transparent 1px);
+    background-size: 34px 34px;
+    background-position: center;
+    background-color: var(--paper);
+    background-attachment: local;
+    opacity: 1;
+  }
+  body::before{ content:none; }
+  .bg-wash{
+    position: fixed; inset:0; z-index:-1;
+    background: var(--paper);
+  }
+  .grid-wash{
+    position: fixed; inset:0; z-index:-1;
+    background-image:
+      linear-gradient(rgba(185,195,207,0.35) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(185,195,207,0.35) 1px, transparent 1px);
+    background-size: 34px 34px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 20%, black 40%, transparent 90%);
+  }
+  .wrap{ width:100%; max-width: 540px; }
+
+  header{ margin-bottom: 22px; }
+  .eyebrow{
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    margin: 0 0 6px;
+  }
+  h1{
+    font-family: "Noto Serif SC", "Source Serif 4", serif;
+    font-weight: 700;
+    font-size: 40px;
+    margin: 0 0 4px;
+    display:flex;
+    align-items:baseline;
+    gap: 12px;
+  }
+  h1 .latin{
+    font-family: "Source Serif 4", serif;
+    font-size: 17px;
+    font-weight: 400;
+    font-style: italic;
+    color: var(--ink-soft);
+  }
+  .stats{
+    font-family:"JetBrains Mono", monospace;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    display:flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
+  .stats b{ color: var(--ink); font-weight:600; }
+
+  .boxes{ display:flex; gap:6px; margin-top:10px; }
+  .box-stamp{
+    width: 34px; height: 34px;
+    border: 1.5px solid var(--ink-soft);
+    border-radius: 3px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    font-family:"JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--ink-soft);
+    background: transparent;
+  }
+  .box-stamp .n{ font-size: 13px; font-weight:600; color: var(--ink); line-height:1;}
+  .box-stamp.filled{ border-color: var(--seal); color: var(--seal-dark); }
+  .box-stamp.filled .n{ color: var(--seal); }
+  .box-stamp.mastered{ border-color: var(--jade); }
+  .box-stamp.mastered .n{ color: var(--jade); }
+
+  .card{
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: 0 10px 30px var(--shadow), 0 1px 0 rgba(255,255,255,0.5) inset;
+    padding: 26px 24px 24px;
+    position: relative;
+    border: 1px solid rgba(33,31,26,0.06);
+  }
+  .tag{
+    position:absolute;
+    top: -12px; left: 22px;
+    background: var(--card);
+    border: 1.5px solid var(--seal);
+    color: var(--seal-dark);
+    font-family:"JetBrains Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    padding: 3px 9px;
+    border-radius: 4px;
+    transform: rotate(-2.5deg);
+    box-shadow: 1px 1px 0 rgba(179,53,42,0.15);
+  }
+
+  .controls-row{
+    display:flex;
+    align-items:center;
+    gap: 12px;
+    margin: 10px 0 20px;
+  }
+  .play-btn{
+    width: 62px; height: 62px;
+    border-radius: 50%;
+    background: var(--seal);
+    color: #fdf6ee;
+    border: none;
+    display:flex; align-items:center; justify-content:center;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(179,53,42,0.35);
+    transition: transform 0.12s ease;
+    flex-shrink:0;
+  }
+  .play-btn:active{ transform: scale(0.93); }
+  .play-btn svg{ width: 24px; height:24px; }
+
+  .rate-toggle{
+    font-family:"JetBrains Mono", monospace;
+    font-size: 12px;
+    background: transparent;
+    border: 1.5px solid var(--ink-soft);
+    color: var(--ink-soft);
+    border-radius: 20px;
+    padding: 7px 13px;
+    cursor: pointer;
+  }
+  .rate-toggle.active{
+    border-color: var(--jade);
+    color: var(--jade);
+    background: var(--jade-soft);
+  }
+  .replay-note{
+    font-family:"JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-left: auto;
+    text-align:right;
+  }
+
+  .grid-input-wrap{ margin-bottom: 18px; }
+  .grid-label{
+    font-family:"JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+    letter-spacing: 0.03em;
+  }
+  textarea.grid-paper{
+    width: 100%;
+    min-height: 92px;
+    resize: vertical;
+    font-family: "Noto Serif SC", "JetBrains Mono", monospace;
+    font-size: 20px;
+    line-height: 34px;
+    color: var(--ink);
+    padding: 4px 10px;
+    border: 1.5px solid var(--seal);
+    border-radius: 6px;
+    background-color: #fffdf8;
+    background-image:
+      repeating-linear-gradient(var(--paper-line) 0 1px, transparent 1px 34px);
+    background-position: 0 6px;
+    outline: none;
+  }
+  textarea.grid-paper:focus{
+    box-shadow: 0 0 0 3px rgba(179,53,42,0.12);
+  }
+  textarea.grid-paper::placeholder{
+    font-family: "Source Serif 4", serif;
+    font-style: italic;
+    font-size: 15px;
+    color: #a39c8d;
+  }
+
+  .reveal-btn, .primary-btn{
+    width: 100%;
+    padding: 13px;
+    border-radius: 8px;
+    border: none;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13.5px;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+  }
+  .reveal-btn:hover, .primary-btn:hover{ opacity: 0.85; }
+
+  .answer{
+    margin-top: 22px;
+    padding-top: 20px;
+    border-top: 1px dashed var(--paper-line);
+    animation: rise 0.35s ease;
+  }
+  @keyframes rise{ from{ opacity:0; transform: translateY(6px);} to{opacity:1; transform:none;} }
+  .hanzi{
+    font-family: "Noto Serif SC", serif;
+    font-weight: 600;
+    font-size: 34px;
+    margin: 0 0 6px;
+    line-height:1.3;
+  }
+  .pinyin{
+    font-family: "JetBrains Mono", monospace;
+    font-size: 16px;
+    color: var(--seal-dark);
+    margin: 0 0 10px;
+  }
+  .meaning{
+    font-size: 17px;
+    color: var(--ink-soft);
+    margin: 0 0 20px;
+  }
+
+  .grade-row{ display:flex; gap: 8px; }
+  .grade-btn{
+    flex:1;
+    padding: 12px 6px;
+    border-radius: 8px;
+    border: 1.5px solid var(--ink-soft);
+    background: transparent;
+    color: var(--ink);
+    font-family:"JetBrains Mono", monospace;
+    font-size: 12.5px;
+    cursor: pointer;
+    transition: transform 0.1s ease;
+  }
+  .grade-btn:active{ transform: scale(0.95); }
+  .grade-btn.again{ border-color: var(--seal); color: var(--seal-dark); }
+  .grade-btn.good{ border-color: var(--ink); }
+  .grade-btn.easy{ border-color: var(--jade); color: var(--jade); }
+
+  .voice-warning{
+    font-family:"JetBrains Mono", monospace;
+    font-size: 12px;
+    background: #fff4e9;
+    border: 1px solid #d8a35c;
+    color: #7a4a13;
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    line-height:1.5;
+    display:none;
+  }
+  .voice-warning.show{ display:block; }
+
+  .empty-state{
+    text-align:center;
+    padding: 40px 10px;
+  }
+  .empty-state .hanzi-big{
+    font-family:"Noto Serif SC", serif;
+    font-size: 46px;
+    color: var(--jade);
+    margin-bottom: 10px;
+  }
+  .empty-state p{ color: var(--ink-soft); margin: 6px 0 22px; }
+
+  footer{
+    margin-top: 22px;
+    font-family:"JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    text-align:center;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .answer{ animation: none; }
+    .play-btn, .grade-btn{ transition:none; }
+  }
+
+  @media (max-width: 420px){
+    h1{ font-size: 32px; }
+    .card{ padding: 22px 16px 18px; }
+  }
+</style>
+</head>
+<body>
+<div class="bg-wash"></div>
+<div class="grid-wash"></div>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">听写 · Dictation Mode</p>
+    <h1>听写 <span class="latin">— Hörverstehen &amp; Vokabeltraining</span></h1>
+    <div class="stats" id="stats"></div>
+    <div class="boxes" id="boxes"></div>
+  </header>
+
+  <div class="voice-warning" id="voiceWarning">
+    Es wurde keine chinesische Sprachausgabe gefunden. Unter Linux fehlt Chromium/Firefox oft eine zh-Stimme.
+    Versuch es in Google Chrome (mit Internetverbindung) oder installier ein chinesisches Sprachpaket für deinen Screenreader/TTS-Dienst.
+  </div>
+
+  <div class="card" id="card"></div>
+
+  <footer>Fortschritt wird nur lokal für dich gespeichert · Karten stammen aus HSK2/3 (ungefähre Einstufung)</footer>
+</div>
+
+<script>
+const ITEMS = [
+  // HSK2 — Wörter
+  {id:'w01',hanzi:'大家',pinyin:'dàjiā',meaning:'alle (Personen)',level:2,type:'word'},
+  {id:'w02',hanzi:'为什么',pinyin:'wèishénme',meaning:'warum',level:2,type:'word'},
+  {id:'w03',hanzi:'非常',pinyin:'fēicháng',meaning:'sehr, äußerst',level:2,type:'word'},
+  {id:'w04',hanzi:'已经',pinyin:'yǐjīng',meaning:'schon, bereits',level:2,type:'word'},
+  {id:'w05',hanzi:'一起',pinyin:'yìqǐ',meaning:'zusammen',level:2,type:'word'},
+  {id:'w06',hanzi:'机场',pinyin:'jīchǎng',meaning:'Flughafen',level:2,type:'word'},
+  {id:'w07',hanzi:'教室',pinyin:'jiàoshì',meaning:'Klassenzimmer',level:2,type:'word'},
+  {id:'w08',hanzi:'房间',pinyin:'fángjiān',meaning:'Zimmer',level:2,type:'word'},
+  {id:'w09',hanzi:'左边',pinyin:'zuǒbiān',meaning:'links',level:2,type:'word'},
+  {id:'w10',hanzi:'右边',pinyin:'yòubiān',meaning:'rechts',level:2,type:'word'},
+  {id:'w11',hanzi:'旁边',pinyin:'pángbiān',meaning:'daneben, neben',level:2,type:'word'},
+  {id:'w12',hanzi:'早上',pinyin:'zǎoshang',meaning:'Morgen',level:2,type:'word'},
+  {id:'w13',hanzi:'晚上',pinyin:'wǎnshang',meaning:'Abend',level:2,type:'word'},
+  {id:'w14',hanzi:'小时',pinyin:'xiǎoshí',meaning:'Stunde',level:2,type:'word'},
+  {id:'w15',hanzi:'时间',pinyin:'shíjiān',meaning:'Zeit',level:2,type:'word'},
+  {id:'w16',hanzi:'去年',pinyin:'qùnián',meaning:'letztes Jahr',level:2,type:'word'},
+  {id:'w17',hanzi:'生日',pinyin:'shēngrì',meaning:'Geburtstag',level:2,type:'word'},
+  {id:'w18',hanzi:'哥哥',pinyin:'gēge',meaning:'älterer Bruder',level:2,type:'word'},
+  {id:'w19',hanzi:'姐姐',pinyin:'jiějie',meaning:'ältere Schwester',level:2,type:'word'},
+  {id:'w20',hanzi:'孩子',pinyin:'háizi',meaning:'Kind',level:2,type:'word'},
+  {id:'w21',hanzi:'服务员',pinyin:'fúwùyuán',meaning:'Kellner(in)',level:2,type:'word'},
+  {id:'w22',hanzi:'西瓜',pinyin:'xīguā',meaning:'Wassermelone',level:2,type:'word'},
+  {id:'w23',hanzi:'咖啡',pinyin:'kāfēi',meaning:'Kaffee',level:2,type:'word'},
+  {id:'w24',hanzi:'手机',pinyin:'shǒujī',meaning:'Handy',level:2,type:'word'},
+  {id:'w25',hanzi:'身体',pinyin:'shēntǐ',meaning:'Körper, Gesundheit',level:2,type:'word'},
+  {id:'w26',hanzi:'公共汽车',pinyin:'gōnggòngqìchē',meaning:'Bus',level:2,type:'word'},
+  {id:'w27',hanzi:'问题',pinyin:'wèntí',meaning:'Frage, Problem',level:2,type:'word'},
+  {id:'w28',hanzi:'考试',pinyin:'kǎoshì',meaning:'Prüfung',level:2,type:'word'},
+  {id:'w29',hanzi:'意思',pinyin:'yìsi',meaning:'Bedeutung',level:2,type:'word'},
+  {id:'w30',hanzi:'说话',pinyin:'shuōhuà',meaning:'sprechen, reden',level:2,type:'word'},
+  {id:'w31',hanzi:'准备',pinyin:'zhǔnbèi',meaning:'vorbereiten',level:2,type:'word'},
+  {id:'w32',hanzi:'介绍',pinyin:'jièshào',meaning:'vorstellen',level:2,type:'word'},
+  {id:'w33',hanzi:'希望',pinyin:'xīwàng',meaning:'hoffen',level:2,type:'word'},
+  {id:'w34',hanzi:'觉得',pinyin:'juéde',meaning:'meinen, finden',level:2,type:'word'},
+  {id:'w35',hanzi:'旅游',pinyin:'lǚyóu',meaning:'verreisen',level:2,type:'word'},
+  {id:'w36',hanzi:'休息',pinyin:'xiūxi',meaning:'sich ausruhen',level:2,type:'word'},
+  {id:'w37',hanzi:'便宜',pinyin:'piányi',meaning:'billig',level:2,type:'word'},
+  {id:'w38',hanzi:'快乐',pinyin:'kuàilè',meaning:'glücklich, fröhlich',level:2,type:'word'},
+
+  // HSK3 — Wörter
+  {id:'w39',hanzi:'阿姨',pinyin:'āyí',meaning:'Tante (auch: fremde ältere Frau)',level:3,type:'word'},
+  {id:'w40',hanzi:'爱好',pinyin:'àihào',meaning:'Hobby',level:3,type:'word'},
+  {id:'w41',hanzi:'安静',pinyin:'ānjìng',meaning:'ruhig, leise',level:3,type:'word'},
+  {id:'w42',hanzi:'办法',pinyin:'bànfǎ',meaning:'Methode, Lösung',level:3,type:'word'},
+  {id:'w43',hanzi:'办公室',pinyin:'bàngōngshì',meaning:'Büro',level:3,type:'word'},
+  {id:'w44',hanzi:'帮忙',pinyin:'bāngmáng',meaning:'einen Gefallen tun, helfen',level:3,type:'word'},
+  {id:'w45',hanzi:'比较',pinyin:'bǐjiào',meaning:'vergleichsweise, ziemlich',level:3,type:'word'},
+  {id:'w46',hanzi:'比赛',pinyin:'bǐsài',meaning:'Wettkampf',level:3,type:'word'},
+  {id:'w47',hanzi:'必须',pinyin:'bìxū',meaning:'müssen, unbedingt',level:3,type:'word'},
+  {id:'w48',hanzi:'变化',pinyin:'biànhuà',meaning:'Veränderung',level:3,type:'word'},
+  {id:'w49',hanzi:'别人',pinyin:'biéren',meaning:'andere Leute',level:3,type:'word'},
+  {id:'w50',hanzi:'冰箱',pinyin:'bīngxiāng',meaning:'Kühlschrank',level:3,type:'word'},
+  {id:'w51',hanzi:'超市',pinyin:'chāoshì',meaning:'Supermarkt',level:3,type:'word'},
+  {id:'w52',hanzi:'成绩',pinyin:'chéngjì',meaning:'Note, Leistung',level:3,type:'word'},
+  {id:'w53',hanzi:'城市',pinyin:'chéngshì',meaning:'Stadt',level:3,type:'word'},
+  {id:'w54',hanzi:'迟到',pinyin:'chídào',meaning:'zu spät kommen',level:3,type:'word'},
+  {id:'w55',hanzi:'除了',pinyin:'chúle',meaning:'außer',level:3,type:'word'},
+  {id:'w56',hanzi:'词典',pinyin:'cídiǎn',meaning:'Wörterbuch',level:3,type:'word'},
+  {id:'w57',hanzi:'聪明',pinyin:'cōngming',meaning:'klug, intelligent',level:3,type:'word'},
+  {id:'w58',hanzi:'打算',pinyin:'dǎsuàn',meaning:'vorhaben, planen',level:3,type:'word'},
+  {id:'w59',hanzi:'担心',pinyin:'dānxīn',meaning:'sich sorgen',level:3,type:'word'},
+  {id:'w60',hanzi:'地铁',pinyin:'dìtiě',meaning:'U-Bahn',level:3,type:'word'},
+  {id:'w61',hanzi:'地图',pinyin:'dìtú',meaning:'Landkarte',level:3,type:'word'},
+  {id:'w62',hanzi:'短',pinyin:'duǎn',meaning:'kurz',level:3,type:'word'},
+  {id:'w63',hanzi:'锻炼',pinyin:'duànliàn',meaning:'trainieren, Sport treiben',level:3,type:'word'},
+  {id:'w64',hanzi:'附近',pinyin:'fùjìn',meaning:'in der Nähe',level:3,type:'word'},
+  {id:'w65',hanzi:'复习',pinyin:'fùxí',meaning:'wiederholen (lernen)',level:3,type:'word'},
+  {id:'w66',hanzi:'干净',pinyin:'gānjìng',meaning:'sauber',level:3,type:'word'},
+  {id:'w67',hanzi:'感兴趣',pinyin:'gǎnxìngqù',meaning:'interessiert sein',level:3,type:'word'},
+  {id:'w68',hanzi:'感冒',pinyin:'gǎnmào',meaning:'sich erkälten',level:3,type:'word'},
+  {id:'w69',hanzi:'刚才',pinyin:'gāngcái',meaning:'gerade eben',level:3,type:'word'},
+  {id:'w70',hanzi:'关系',pinyin:'guānxi',meaning:'Beziehung',level:3,type:'word'},
+  {id:'w71',hanzi:'环境',pinyin:'huánjìng',meaning:'Umgebung, Umwelt',level:3,type:'word'},
+  {id:'w72',hanzi:'会议',pinyin:'huìyì',meaning:'Besprechung, Konferenz',level:3,type:'word'},
+  {id:'w73',hanzi:'记得',pinyin:'jìde',meaning:'sich erinnern',level:3,type:'word'},
+  {id:'w74',hanzi:'健康',pinyin:'jiànkāng',meaning:'gesund',level:3,type:'word'},
+  {id:'w75',hanzi:'简单',pinyin:'jiǎndān',meaning:'einfach',level:3,type:'word'},
+  {id:'w76',hanzi:'经常',pinyin:'jīngcháng',meaning:'oft, häufig',level:3,type:'word'},
+  {id:'w77',hanzi:'决定',pinyin:'juédìng',meaning:'entscheiden',level:3,type:'word'},
+  {id:'w78',hanzi:'了解',pinyin:'liǎojiě',meaning:'verstehen, erfahren',level:3,type:'word'},
+
+  // Sätze — gemischt HSK2/3
+  {id:'s01',hanzi:'我每天早上七点起床。',pinyin:'Wǒ měitiān zǎoshang qī diǎn qǐchuáng.',meaning:'Ich stehe jeden Morgen um 7 Uhr auf.',level:2,type:'sentence'},
+  {id:'s02',hanzi:'虽然下雨,但是我们还是要出去。',pinyin:'Suīrán xiàyǔ, dànshì wǒmen háishi yào chūqù.',meaning:'Obwohl es regnet, wollen wir trotzdem raus.',level:2,type:'sentence'},
+  {id:'s03',hanzi:'因为今天很忙,所以我没有时间吃饭。',pinyin:'Yīnwèi jīntiān hěn máng, suǒyǐ wǒ méiyǒu shíjiān chīfàn.',meaning:'Weil ich heute sehr beschäftigt bin, habe ich keine Zeit zu essen.',level:2,type:'sentence'},
+  {id:'s04',hanzi:'你觉得这个电影怎么样?',pinyin:'Nǐ juéde zhège diànyǐng zěnmeyàng?',meaning:'Was hältst du von diesem Film?',level:2,type:'sentence'},
+  {id:'s05',hanzi:'他比我高一点儿。',pinyin:'Tā bǐ wǒ gāo yìdiǎnr.',meaning:'Er ist etwas größer als ich.',level:2,type:'sentence'},
+  {id:'s06',hanzi:'我打算明年去中国留学。',pinyin:'Wǒ dǎsuàn míngnián qù Zhōngguó liúxué.',meaning:'Ich habe vor, nächstes Jahr in China zu studieren.',level:3,type:'sentence'},
+  {id:'s07',hanzi:'请把窗户关上。',pinyin:'Qǐng bǎ chuānghu guānshàng.',meaning:'Bitte mach das Fenster zu.',level:3,type:'sentence'},
+  {id:'s08',hanzi:'这件衣服太贵了,能不能便宜一点?',pinyin:'Zhè jiàn yīfu tài guì le, néng bu néng piányi yìdiǎn?',meaning:'Dieses Kleidungsstück ist zu teuer, geht es etwas billiger?',level:2,type:'sentence'},
+  {id:'s09',hanzi:'我已经在这儿住了三年了。',pinyin:'Wǒ yǐjīng zài zhèr zhùle sān nián le.',meaning:'Ich wohne schon seit drei Jahren hier.',level:2,type:'sentence'},
+  {id:'s10',hanzi:'除了你以外,大家都来了。',pinyin:'Chúle nǐ yǐwài, dàjiā dōu lái le.',meaning:'Außer dir sind alle gekommen.',level:3,type:'sentence'},
+  {id:'s11',hanzi:'你越努力,就越容易成功。',pinyin:'Nǐ yuè nǔlì, jiù yuè róngyì chénggōng.',meaning:'Je mehr du dich anstrengst, desto leichter hast du Erfolg.',level:3,type:'sentence'},
+  {id:'s12',hanzi:'我一边听音乐一边写作业。',pinyin:'Wǒ yìbiān tīng yīnyuè yìbiān xiě zuòyè.',meaning:'Ich höre Musik, während ich Hausaufgaben mache.',level:2,type:'sentence'},
+  {id:'s13',hanzi:'别担心,一切都会好的。',pinyin:'Bié dānxīn, yíqiè dōu huì hǎo de.',meaning:'Mach dir keine Sorgen, alles wird gut.',level:3,type:'sentence'},
+  {id:'s14',hanzi:'他说的话我一点儿也听不懂。',pinyin:'Tā shuō de huà wǒ yìdiǎnr yě tīng bu dǒng.',meaning:'Was er sagt, verstehe ich überhaupt nicht.',level:3,type:'sentence'},
+  {id:'s15',hanzi:'你能不能帮我一个忙?',pinyin:'Nǐ néng bu néng bāng wǒ yí gè máng?',meaning:'Kannst du mir einen Gefallen tun?',level:3,type:'sentence'},
+  {id:'s16',hanzi:'这个问题比我想的复杂多了。',pinyin:'Zhège wèntí bǐ wǒ xiǎng de fùzá duō le.',meaning:'Dieses Problem ist viel komplizierter, als ich dachte.',level:3,type:'sentence'},
+  {id:'s17',hanzi:'我们下周三见面,怎么样?',pinyin:'Wǒmen xià zhōu sān jiànmiàn, zěnmeyàng?',meaning:'Wir treffen uns nächsten Mittwoch, wie klingt das?',level:3,type:'sentence'},
+  {id:'s18',hanzi:'中文越学越有意思。',pinyin:'Zhōngwén yuè xué yuè yǒuyìsi.',meaning:'Chinesisch wird umso interessanter, je mehr man lernt.',level:3,type:'sentence'},
+  {id:'s19',hanzi:'我觉得坐地铁比开车方便。',pinyin:'Wǒ juéde zuò dìtiě bǐ kāichē fāngbiàn.',meaning:'Ich finde, U-Bahn fahren ist praktischer als Auto fahren.',level:3,type:'sentence'},
+  {id:'s20',hanzi:'如果你有空,我们一起去喝咖啡吧。',pinyin:'Rúguǒ nǐ yǒu kòng, wǒmen yìqǐ qù hē kāfēi ba.',meaning:'Wenn du Zeit hast, lass uns zusammen einen Kaffee trinken gehen.',level:2,type:'sentence'},
+];
+
+// -------- Leitner scheduling --------
+const INTERVAL_MS = {
+  1: 10 * 60 * 1000,            // 10 min
+  2: 1  * 24*60*60*1000,        // 1 day
+  3: 3  * 24*60*60*1000,        // 3 days
+  4: 7  * 24*60*60*1000,        // 7 days
+  5: 21 * 24*60*60*1000,        // 21 days
+};
+const STORAGE_KEY = 'zh-tingxie-progress';
+
+let progress = {};
+let queue = [];
+let qIndex = 0;
+let revealed = false;
+let rate = 1;
+let zhVoice = null;
+
+async function loadProgress(){
+  try{
+    const res = await window.storage.get(STORAGE_KEY, false);
+    if(res && res.value) progress = JSON.parse(res.value);
+  }catch(e){ progress = {}; }
+}
+async function saveProgress(){
+  try{ await window.storage.set(STORAGE_KEY, JSON.stringify(progress), false); }
+  catch(e){ console.error('Speichern fehlgeschlagen', e); }
+}
+
+function getEntry(id){
+  return progress[id] || { box: 0, next: 0, seen: 0, correct: 0 };
+}
+
+function buildQueue(){
+  const now = Date.now();
+  const due = ITEMS.filter(it => getEntry(it.id).next <= now);
+  for(let i = due.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i+1));
+    [due[i], due[j]] = [due[j], due[i]];
+  }
+  queue = due.map(it => it.id);
+  qIndex = 0;
+}
+
+function currentItem(){
+  if(qIndex >= queue.length) return null;
+  return ITEMS.find(it => it.id === queue[qIndex]);
+}
+
+function grade(result){
+  const item = currentItem();
+  if(!item) return;
+  const entry = getEntry(item.id);
+  entry.seen = (entry.seen || 0) + 1;
+  const now = Date.now();
+
+  if(result === 'again'){
+    entry.box = 1;
+    entry.next = now + INTERVAL_MS[1];
+    progress[item.id] = entry;
+    // requeue a few cards later in this session
+    const reinsertAt = Math.min(qIndex + 4, queue.length);
+    queue.splice(reinsertAt, 0, item.id);
+  } else {
+    entry.correct = (entry.correct || 0) + 1;
+    const bump = result === 'easy' ? 2 : 1;
+    entry.box = Math.min((entry.box || 0) + bump, 5);
+    entry.next = now + INTERVAL_MS[entry.box];
+    progress[item.id] = entry;
+  }
+  saveProgress();
+  qIndex++;
+  revealed = false;
+  render();
+}
+
+function speak(text, r){
+  if(!('speechSynthesis' in window)){
+    alert('Dieser Browser unterstützt keine Sprachausgabe.');
+    return;
+  }
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'zh-CN';
+  if(zhVoice) u.voice = zhVoice;
+  u.rate = r || rate;
+  window.speechSynthesis.speak(u);
+}
+
+function pickVoice(){
+  if(!('speechSynthesis' in window)) return;
+  const voices = window.speechSynthesis.getVoices();
+  zhVoice = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('zh')) || null;
+  document.getElementById('voiceWarning').classList.toggle('show', !zhVoice);
+}
+if('speechSynthesis' in window){
+  window.speechSynthesis.onvoiceschanged = pickVoice;
+  pickVoice();
+} else {
+  document.getElementById('voiceWarning').classList.add('show');
+}
+
+function renderStats(){
+  const now = Date.now();
+  const dueCount = ITEMS.filter(it => getEntry(it.id).next <= now).length;
+  const boxCounts = [0,0,0,0,0,0]; // index 0 unused-ish, 0=new
+  ITEMS.forEach(it => {
+    const e = progress[it.id];
+    if(!e) boxCounts[0]++; else boxCounts[e.box]++;
+  });
+  document.getElementById('stats').innerHTML = `
+    <span>Fällig heute: <b>${dueCount}</b></span>
+    <span>Karten gesamt: <b>${ITEMS.length}</b></span>
+    <span>Gemeistert: <b>${boxCounts[5]}</b></span>
+  `;
+  const boxesEl = document.getElementById('boxes');
+  boxesEl.innerHTML = '';
+  for(let b = 1; b <= 5; b++){
+    const div = document.createElement('div');
+    div.className = 'box-stamp' + (boxCounts[b] > 0 ? ' filled' : '') + (b === 5 ? ' mastered' : '');
+    div.innerHTML = `<span class="n">${boxCounts[b]}</span><span>Box ${b}</span>`;
+    boxesEl.appendChild(div);
+  }
+}
+
+function render(){
+  renderStats();
+  const cardEl = document.getElementById('card');
+  const item = currentItem();
+
+  if(!item){
+    cardEl.innerHTML = `
+      <div class="empty-state">
+        <div class="hanzi-big">完</div>
+        <p>Für jetzt fertig. Alle fälligen Karten wiederholt.</p>
+        <button class="primary-btn" id="extraBtn">Trotzdem weiterüben</button>
+      </div>
+    `;
+    document.getElementById('extraBtn').onclick = () => {
+      queue = ITEMS.map(it => it.id);
+      for(let i = queue.length - 1; i > 0; i--){
+        const j = Math.floor(Math.random() * (i+1));
+        [queue[i], queue[j]] = [queue[j], queue[i]];
+      }
+      qIndex = 0;
+      revealed = false;
+      render();
+    };
+    return;
+  }
+
+  const tagLabel = `HSK${item.level} · ${item.type === 'word' ? 'Wort' : 'Satz'}`;
+
+  cardEl.innerHTML = `
+    <div class="tag">${tagLabel}</div>
+    <div class="controls-row">
+      <button class="play-btn" id="playBtn" aria-label="Abspielen">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3z"/><path d="M16.5 12c0-1.77-.77-3.29-2-4.24v8.48c1.23-.95 2-2.47 2-4.24z"/></svg>
+      </button>
+      <button class="rate-toggle ${rate === 0.7 ? 'active' : ''}" id="rateBtn">langsam</button>
+      <span class="replay-note">nochmal abspielbar</span>
+    </div>
+
+    <div class="grid-input-wrap">
+      <div class="grid-label">Was hast du gehört? (Pinyin oder Hanzi)</div>
+      <textarea class="grid-paper" id="answerInput" placeholder="hier schreiben …"></textarea>
+    </div>
+
+    <button class="reveal-btn" id="revealBtn">Antwort zeigen</button>
+
+    <div id="answerBox"></div>
+  `;
+
+  document.getElementById('playBtn').onclick = () => speak(item.hanzi);
+  document.getElementById('rateBtn').onclick = (e) => {
+    rate = rate === 0.7 ? 1 : 0.7;
+    e.target.classList.toggle('active', rate === 0.7);
+    speak(item.hanzi);
+  };
+  document.getElementById('revealBtn').onclick = () => {
+    revealed = true;
+    showAnswer(item);
+  };
+
+  if(revealed) showAnswer(item);
+}
+
+function showAnswer(item){
+  const box = document.getElementById('answerBox');
+  const revealBtn = document.getElementById('revealBtn');
+  if(revealBtn) revealBtn.style.display = 'none';
+  box.innerHTML = `
+    <div class="answer">
+      <p class="hanzi">${item.hanzi}</p>
+      <p class="pinyin">${item.pinyin}</p>
+      <p class="meaning">${item.meaning}</p>
+      <div class="grade-row">
+        <button class="grade-btn again" id="gAgain">Nochmal</button>
+        <button class="grade-btn good" id="gGood">Gut</button>
+        <button class="grade-btn easy" id="gEasy">Einfach</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('gAgain').onclick = () => grade('again');
+  document.getElementById('gGood').onclick = () => grade('good');
+  document.getElementById('gEasy').onclick = () => grade('easy');
+}
+
+(async function init(){
+  await loadProgress();
+  buildQueue();
+  render();
+})();
+</script>
+</body>
+</html>
