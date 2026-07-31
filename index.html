@@ -521,30 +521,60 @@ function grade(result){
   render();
 }
 
+let onlineAudio = null;
+
 function speak(text, r){
-  if(!('speechSynthesis' in window)){
-    alert('Dieser Browser unterstützt keine Sprachausgabe.');
+  if(zhVoice){
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN';
+    u.voice = zhVoice;
+    u.rate = r || rate;
+    window.speechSynthesis.speak(u);
     return;
   }
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'zh-CN';
-  if(zhVoice) u.voice = zhVoice;
-  u.rate = r || rate;
-  window.speechSynthesis.speak(u);
+  speakOnline(text, r || rate);
+}
+
+function speakOnline(text, r){
+  try{
+    if(onlineAudio){ onlineAudio.pause(); }
+    const url = 'https://translate.google.com/translate_tts?ie=UTF-8&q='
+      + encodeURIComponent(text) + '&tl=zh-CN&client=tw-ob';
+    onlineAudio = new Audio(url);
+    onlineAudio.playbackRate = r || 1;
+    onlineAudio.play().catch(() => {
+      document.getElementById('voiceWarning').innerHTML =
+        'Weder lokale noch Online-Sprachausgabe verfügbar (evtl. kein Internet oder blockiert). ' +
+        'Prüf deine Verbindung oder installier eine lokale zh-Stimme (speech-dispatcher + espeak-ng).';
+      document.getElementById('voiceWarning').classList.add('show');
+    });
+  }catch(e){
+    console.error('Online-TTS fehlgeschlagen', e);
+  }
 }
 
 function pickVoice(){
-  if(!('speechSynthesis' in window)) return;
+  if(!('speechSynthesis' in window)) { updateVoiceBanner(); return; }
   const voices = window.speechSynthesis.getVoices();
   zhVoice = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('zh')) || null;
-  document.getElementById('voiceWarning').classList.toggle('show', !zhVoice);
+  updateVoiceBanner();
+}
+function updateVoiceBanner(){
+  const el = document.getElementById('voiceWarning');
+  if(zhVoice){
+    el.classList.remove('show');
+  } else {
+    el.innerHTML = 'Keine lokale chinesische Stimme im Browser gefunden — nutze stattdessen Online-Aussprache ' +
+      '(Google Translate, inoffiziell, braucht Internet). Für Offline-Betrieb: lokale zh-Stimme im Browser/TTS-Dienst installieren.';
+    el.classList.add('show');
+  }
 }
 if('speechSynthesis' in window){
   window.speechSynthesis.onvoiceschanged = pickVoice;
   pickVoice();
 } else {
-  document.getElementById('voiceWarning').classList.add('show');
+  updateVoiceBanner();
 }
 
 function renderStats(){
