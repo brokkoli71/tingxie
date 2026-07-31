@@ -463,14 +463,37 @@ let revealed = false;
 let rate = 1;
 let zhVoice = null;
 
+// Storage abstraction: uses Claude Artifacts' window.storage when available
+// (claude.ai sandbox), otherwise falls back to localStorage for standalone/
+// self-hosted deployments. NOTE: localStorage does NOT sync across devices —
+// see CLAUDE.md "Open TODOs" for the planned backend-sync replacement.
+const Storage = {
+  async get(key){
+    if(typeof window.storage !== 'undefined' && window.storage){
+      try{ return await window.storage.get(key, false); }catch(e){ return null; }
+    }
+    try{
+      const v = localStorage.getItem(key);
+      return v ? { key, value: v, shared: false } : null;
+    }catch(e){ return null; }
+  },
+  async set(key, value){
+    if(typeof window.storage !== 'undefined' && window.storage){
+      try{ return await window.storage.set(key, value, false); }catch(e){ return null; }
+    }
+    try{ localStorage.setItem(key, value); return { key, value, shared: false }; }
+    catch(e){ return null; }
+  }
+};
+
 async function loadProgress(){
   try{
-    const res = await window.storage.get(STORAGE_KEY, false);
+    const res = await Storage.get(STORAGE_KEY);
     if(res && res.value) progress = JSON.parse(res.value);
   }catch(e){ progress = {}; }
 }
 async function saveProgress(){
-  try{ await window.storage.set(STORAGE_KEY, JSON.stringify(progress), false); }
+  try{ await Storage.set(STORAGE_KEY, JSON.stringify(progress)); }
   catch(e){ console.error('Speichern fehlgeschlagen', e); }
 }
 
