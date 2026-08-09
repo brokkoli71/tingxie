@@ -720,7 +720,7 @@ async function saveProgress(){
 // producing it from "alle (Personen)" are different skills that decay at
 // different rates, so one shared box would mis-schedule both.
 const MODES = [
-  { id: 'listen', chip: 'Hören',     tag: 'Hören',     ask: 'Was hast du gehört? Schreib die Zeichen.' },
+  { id: 'listen', chip: 'Hören',     tag: 'Hören',     ask: 'Was hast du gehört?' },
   { id: 'de2hz',  chip: 'Schreiben', tag: 'Schreiben', ask: 'Wie schreibt man das?' },
   { id: 'hz2de',  chip: 'Lesen',     tag: 'Lesen',     ask: 'Was bedeutet das?' },
 ];
@@ -754,14 +754,15 @@ function modeApplies(mode, item){
 }
 
 // How the answer is given:
-//   canvas — draw the characters (words: producing the character IS the skill)
-//   pinyin — type it (sentences: the skill under test is hearing and
-//            segmenting, and drawing 10 characters costs far more than it
-//            teaches; the word cards already drill those characters)
+//   pinyin — type it. All listening cards: what's under test is whether you
+//            heard and parsed it, not whether you can form the strokes.
+//   canvas — draw the characters. Only de2hz, where producing the character
+//            from meaning is precisely the skill being trained.
 //   none   — nothing to enter, self-assessed on reveal
-function answerFormat(mode, item){
+function answerFormat(mode){
   if(mode === 'hz2de') return 'none';
-  return item.type === 'sentence' ? 'pinyin' : 'canvas';
+  if(mode === 'listen') return 'pinyin';
+  return 'canvas';
 }
 
 // Progress is keyed "<itemId>:<mode>". Item ids never contain ':', so
@@ -1032,18 +1033,16 @@ function render(){
     card.mode === 'de2hz' ? `<div class="prompt-de">${item.meaning}</div>` :
     card.mode === 'hz2de' ? `<div class="prompt-hz">${item.hanzi}</div>` : '';
 
-  const format = answerFormat(card.mode, item);
+  const format = answerFormat(card.mode);
   const wantsWriting = format === 'canvas';
-  const askLabel = format === 'pinyin'
-    ? 'Was hast du gehört? Schreib es in Pinyin (ohne Töne).'
-    : mode.ask;
+  const askLabel = mode.ask;
 
   const pinyinHtml = `
     <div class="grid-input-wrap">
       <div class="grid-label">${askLabel}</div>
       <textarea class="grid-paper" id="pinyinInput" rows="2"
         autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"
-        placeholder="z. B. women mingtian qu beijing"></textarea>
+        placeholder="pinyin …"></textarea>
     </div>
   `;
 

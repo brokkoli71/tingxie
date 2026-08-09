@@ -128,17 +128,17 @@ settings screen. User vocabulary for the axes is pinyin / deutsch / hanzi.
 
 | id | chip | prompt | answer (word) | answer (sentence) |
 |----|------|--------|---------------|-------------------|
-| `listen` | Hören | audio only | draw the hanzi | **type pinyin**, no tone marks |
+| `listen` | Hören | audio only | type pinyin | type pinyin |
 | `de2hz` | Schreiben | German meaning | draw the hanzi | **not offered** |
 | `hz2de` | Lesen | hanzi | German meaning, self-assessed — no input | same |
 
 Two rules in code, `modeApplies()` and `answerFormat()`, and both are
 pedagogical rather than technical:
 
-- **Sentences are answered in pinyin, not drawn.** What a sentence tests is
-  hearing and segmenting; drawing ten characters one at a time costs far more
-  than it teaches, and the word cards already drill those characters. Words
-  *are* drawn, because producing the character is the skill being tested.
+- **Listening is always typed, never drawn.** What a listening card tests is
+  whether you heard and parsed it, not whether you can form the strokes. The
+  canvas belongs to `de2hz` alone, where producing the character from its
+  meaning *is* the skill. Pinyin is entered plain — no tone marks.
 - **`de2hz` is not offered for sentences** — writing a whole sentence in hanzi
   from a German prompt is a translation exercise well beyond HSK2/3.
 
