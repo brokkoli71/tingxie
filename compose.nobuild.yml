@@ -41,9 +41,37 @@ services:
       PORT: "8080"
       DATA_DIR: /data
       TINGXIE_TOKEN: "${TINGXIE_TOKEN:-}"
+      TTS_URL: http://tts:5002
+    depends_on:
+      - tts
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/api/health"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 5s
+
+  # Edge-TTS relay. Not published to the host — only the app talks to it, over
+  # the compose network. Stays no-build by pip-installing at startup (~15s);
+  # slim rather than alpine so aiohttp installs from a wheel instead of
+  # compiling. Runs as root because it must write the cache volume.
+  tts:
+    image: python:3.12-slim
+    container_name: tingxie-tts
+    restart: unless-stopped
+    command: sh -c "pip install --no-cache-dir --quiet edge-tts && exec python /app/tts/tts.py"
+    volumes:
+      - ./tts:/app/tts:ro
+      - ./data/tts-cache:/cache
+    environment:
+      PORT: "5002"
+      CACHE_DIR: /cache
+      TTS_VOICE: "${TTS_VOICE:-zh-CN-XiaoxiaoNeural}"
+    expose:
+      - "5002"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:5002/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s

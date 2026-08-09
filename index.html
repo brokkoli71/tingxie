@@ -567,17 +567,51 @@ function grade(result){
 
 let onlineAudio = null;
 
+// Voice preference, best first:
+//   1. /api/tts — Microsoft neural voice via the server relay. Best prosody
+//      and tones, and identical on every device.
+//   2. a local zh voice, if the browser has a real one (phones usually do)
+//   3. Google Translate's unofficial endpoint
+// serverTts flips to false permanently on the first failure, so a missing or
+// broken relay costs one failed request per session, not one per card.
+let serverTts = true;
+
 function speak(text, r){
+  const spd = r || rate;
+  if(serverTts){ speakServer(text, spd); return; }
+  speakLocalOrOnline(text, spd);
+}
+
+function speakLocalOrOnline(text, spd){
   if(zhVoice){
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'zh-CN';
     u.voice = zhVoice;
-    u.rate = r || rate;
+    u.rate = spd;
     window.speechSynthesis.speak(u);
     return;
   }
-  speakOnline(text, r || rate);
+  speakOnline(text, spd);
+}
+
+function speakServer(text, spd){
+  if(onlineAudio){ onlineAudio.pause(); }
+  // The relay re-synthesises at the requested rate rather than resampling,
+  // so slow playback keeps its pitch and tones stay intelligible.
+  const pct = Math.round((spd - 1) * 100);
+  const rateParam = (pct >= 0 ? '+' : '') + pct + '%';
+  const url = '/api/tts?text=' + encodeURIComponent(text) + '&rate=' + encodeURIComponent(rateParam);
+  onlineAudio = new Audio(url);
+  const fallback = () => {
+    if(!serverTts) return;
+    serverTts = false;
+    console.warn('Server-TTS nicht verfügbar, nutze Ersatzstimme');
+    updateVoiceBanner();
+    speakLocalOrOnline(text, spd);
+  };
+  onlineAudio.onerror = fallback;
+  onlineAudio.play().catch(fallback);
 }
 
 function speakOnline(text, r){
@@ -606,11 +640,12 @@ function pickVoice(){
 }
 function updateVoiceBanner(){
   const el = document.getElementById('voiceWarning');
-  if(zhVoice){
+  if(serverTts || zhVoice){
+    // Neural relay (or a real local voice) — nothing worth warning about.
     el.classList.remove('show');
   } else {
-    el.innerHTML = 'Keine lokale chinesische Stimme im Browser gefunden — nutze stattdessen Online-Aussprache ' +
-      '(Google Translate, inoffiziell, braucht Internet). Für Offline-Betrieb: lokale zh-Stimme im Browser/TTS-Dienst installieren.';
+    el.innerHTML = 'Neurale Server-Stimme nicht erreichbar — nutze stattdessen Online-Aussprache ' +
+      '(Google Translate, inoffiziell, braucht Internet).';
     el.classList.add('show');
   }
 }

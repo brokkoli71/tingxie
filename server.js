@@ -14,6 +14,9 @@ const PROGRESS_FILE = path.join(DATA_DIR, 'progress.json');
 // Optional shared secret. If set, every /api request must send it as
 // X-Tingxie-Token. Leave unset when the app sits behind Cloudflare Access.
 const TOKEN = process.env.TINGXIE_TOKEN || '';
+// Base URL of the edge-tts relay (see tts/tts.py). Unset = feature off, and
+// the frontend falls back to a local voice or Google Translate.
+const TTS_URL = process.env.TTS_URL || '';
 
 const MAX_BODY = 2 * 1024 * 1024; // progress for a few thousand items, generously
 
@@ -104,6 +107,10 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, { ok: true });
   }
 
+  if (url.pathname === '/api/tts') {
+    return proxyTts(req, res, url);
+  }
+
   if (url.pathname !== '/api/progress') {
     return sendJson(res, 404, { error: 'not found' });
   }
@@ -136,6 +143,39 @@ async function handleApi(req, res, url) {
   }
 
   return sendJson(res, 405, { error: 'method not allowed' }, { Allow: 'GET, PUT' });
+}
+
+// Proxies /api/tts to the edge-tts relay so the browser stays same-origin.
+// TTS_URL is fixed by config and only the query is forwarded, so there is no
+// attacker-controlled destination here. If TTS_URL is unset or the relay is
+// down we fail fast and the frontend falls back to its other voices.
+function proxyTts(req, res, url) {
+  if (!TTS_URL) return sendJson(res, 503, { error: 'tts not configured' });
+  if (req.method !== 'GET') return sendJson(res, 405, { error: 'method not allowed' });
+
+  const text = url.searchParams.get('text') || '';
+  const rate = url.searchParams.get('rate') || '+0%';
+  if (!text) return sendJson(res, 400, { error: 'missing text' });
+
+  const target = new URL('/tts', TTS_URL);
+  target.searchParams.set('text', text);
+  target.searchParams.set('rate', rate);
+
+  const upstream = http.request(target, { method: 'GET', timeout: 20000 }, (up) => {
+    res.writeHead(up.statusCode, {
+      'Content-Type': up.headers['content-type'] || 'application/octet-stream',
+      // Clips never change for a given text+rate, so let the browser keep them.
+      'Cache-Control': up.statusCode === 200 ? 'public, max-age=31536000' : 'no-store',
+    });
+    up.pipe(res);
+  });
+  upstream.on('timeout', () => upstream.destroy(new Error('tts timeout')));
+  upstream.on('error', (e) => {
+    console.error('tts proxy failed', e.message);
+    if (!res.headersSent) sendJson(res, 502, { error: 'tts unavailable' });
+    else res.end();
+  });
+  upstream.end();
 }
 
 const server = http.createServer(async (req, res) => {

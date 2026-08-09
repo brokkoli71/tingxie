@@ -71,24 +71,33 @@ If the Edge-TTS relay lands, it goes in this same service as `/api/tts`.
 
 ## TTS chain
 
-1. **Preferred:** local browser voice via `speechSynthesis`, if
-   `getVoices()` returns anything with `lang` starting `zh`.
-2. **Fallback (currently active):** Google Translate's unofficial TTS
-   endpoint, played via a plain `<audio src="https://translate.google.com/translate_tts?...">`
-   element (no API key, no CORS issue since it's a media element, not a
-   `fetch`). This is undocumented/unofficial — could break or get rate
-   limited without notice. Flagged clearly in the UI when it's the active
-   path.
-3. **Considered, not implemented:** Microsoft Edge-TTS neural voices
-   (e.g. `zh-CN-XiaoxiaoNeural`) — free, no key, noticeably better prosody
-   than both options above. Can't be called directly from arbitrary browser
-   JS: Microsoft's endpoint requires a WebSocket header
-   (`Sec-WebSocket-Version`) that only the real Edge browser is allowed to
-   set, so Chrome/Firefox fail. Workaround is a tiny server-side relay
-   (e.g. Python `edge-tts` package, or the `edge-tts-universal` npm package
-   in Node) — a good candidate to bundle into the same TrueNAS backend
-   container as the progress API, exposed as e.g. `GET /api/tts?text=...`
-   returning an mp3.
+**Current order** (best first), see `speak()` in `index.html`:
+
+0. **`/api/tts`** — Edge-TTS neural relay (`tts/tts.py`, service `tts` in
+   compose), voice `zh-CN-XiaoxiaoNeural`. Same audio on every device. Clips
+   are cached on disk by (text, voice, rate), so the fixed vocab bank is
+   synthesised once and thereafter served locally. Slow playback re-synthesises
+   at `-30%` server-side rather than resampling, so pitch and tones survive.
+   `serverTts` flips off permanently on the first failure, so an unreachable
+   relay costs one request per session.
+
+Fallbacks, in order:
+
+1. **Local browser voice** via `speechSynthesis`, if `getVoices()` returns
+   anything with `lang` starting `zh`. Phones generally have a good one.
+   This deliberately misses espeak-ng on Linux, which reports `cmn` rather
+   than `zh`: its formant synthesis renders tones unreliably, which is worse
+   than useless in a listening trainer. Don't "fix" the filter to match `cmn`.
+2. **Google Translate's unofficial TTS endpoint**, via a plain
+   `<audio src="https://translate.google.com/translate_tts?...">` (no key, and
+   no CORS problem since it's a media element, not a `fetch`). Undocumented —
+   could break or get rate limited without notice. Flagged in the UI when
+   active.
+
+The relay is why the app is no longer purely dependency-free: `tts/tts.py`
+needs the `edge-tts` package, installed at container start (see compose) so
+there is still no build step. `server.js` and `index.html` remain
+dependency-free.
 
 ## Data model
 
