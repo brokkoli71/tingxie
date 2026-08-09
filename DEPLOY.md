@@ -27,6 +27,40 @@ curl localhost:8080/api/health     # -> {"ok":true}
 The compose file binds the port to `127.0.0.1` only, so nothing is exposed on
 the LAN — the tunnel is the sole way in.
 
+## Via Dockge
+
+Dockge runs `docker compose` over a stack directory; it does not build images
+and cannot create the source files for you. So put the repo where Dockge looks
+for stacks, and use the no-build compose:
+
+```sh
+git clone <this repo> /opt/stacks/tingxie      # or wherever DOCKGE_STACKS_DIR points
+cd /opt/stacks/tingxie
+cp compose.nobuild.yml compose.yaml            # Dockge expects this name
+mkdir -p data && chown 1000:1000 data
+```
+
+The stack then shows up in Dockge; hit *Start*. Updates are `git pull` in that
+directory, then *Restart* — there is no image to rebuild.
+
+Editing `compose.yaml` from Dockge's UI is fine; just don't expect it to manage
+`server.js`/`index.html`, which come from git.
+
+## Via TrueNAS custom app
+
+Only on TrueNAS SCALE 24.10 (Electric Eel) or newer, where apps run on Docker.
+On older releases apps run on k3s and this won't apply — use plain compose over
+SSH instead.
+
+The custom-app form takes an **image reference and cannot build a Dockerfile**,
+so use the same no-build approach: image `node:22-alpine`, command
+`node /app/server.js`, and host-path mounts for the checked-out repo (`/app`,
+read-only) and the data directory (`/data`). Port 8080. If your version offers
+*Install via YAML*, paste `compose.nobuild.yml` directly and adjust the relative
+paths to absolute ones under `/mnt/<pool>/apps/tingxie`.
+
+Either way, clone the repo to the host first — the app needs the source on disk.
+
 ## Cloudflare Tunnel → tingxie.hannesspitz.de
 
 Same pattern as `cloud.hannesspitz.de`. If that tunnel already runs on this host,
