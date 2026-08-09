@@ -338,6 +338,11 @@
     .controls-row{ order:2; margin: 0 0 16px; }
     .reveal-btn{ order:3; }
     #answerBox{ order:4; }
+    /* Play sits far right, inside the right thumb's arc. Reordered rather
+       than row-reversed, so text still reads left-to-right. */
+    .controls-row .replay-note{ order:1; margin-left:0; margin-right:auto; }
+    .controls-row .rate-toggle{ order:2; }
+    .controls-row .play-btn{ order:3; }
     /* Bigger tap target now that it's the primary thumb control. */
     .play-btn{ width: 68px; height: 68px; }
     .play-btn svg{ width: 27px; height: 27px; }
