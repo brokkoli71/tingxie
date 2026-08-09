@@ -1,0 +1,21 @@
+services:
+  tingxie:
+    build: .
+    image: tingxie:latest
+    container_name: tingxie
+    restart: unless-stopped
+    # Bound to localhost: the container is reached from the outside only through
+    # the Cloudflare Tunnel, never directly over the LAN/WAN port.
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./data:/data
+    environment:
+      # Optional shared secret; leave empty when behind Cloudflare Access.
+      TINGXIE_TOKEN: "${TINGXIE_TOKEN:-}"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

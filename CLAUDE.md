@@ -17,10 +17,12 @@ recognize-and-tap format like Duolingo/standard flashcard apps.
 
 ## Current state
 
-Single self-contained `tingxie.html` — no build step, no npm dependencies.
-Everything (data, styling, logic) lives in one file. This was fine as a
-Claude.ai artifact prototype; see "Open TODOs" for what needs to change to
-run well as a self-hosted app.
+Frontend is a single self-contained `index.html` — no build step, no npm
+dependencies; everything (data, styling, logic) lives in that one file.
+Alongside it, `server.js` serves that file and a small progress API from the
+same origin, so progress syncs across devices. `server.js` is Node stdlib only
+— still no dependencies anywhere in the project. Deployment (Docker +
+Cloudflare Tunnel) is documented in `DEPLOY.md`.
 
 ## Tech stack (current)
 
@@ -30,32 +32,27 @@ run well as a self-hosted app.
 - Storage: abstracted behind a `Storage.get/set` object (see below) — do not
   call `window.storage` or `localStorage` directly elsewhere in the code
 
-## ⚠️ First thing to fix: storage doesn't sync across devices
+## Storage / sync (done)
 
-The prototype used `window.storage`, which is a Claude.ai **artifact-only**
-API — it does not exist outside claude.ai. It's already been patched to fall
-back to `localStorage` (see the `Storage` object near the top of the
-`<script>` block) so the app doesn't silently break when self-hosted. But
-`localStorage` is per-browser/per-device — progress will NOT sync between
-phone, the CachyOS machine, and the Omarchy laptop.
+The prototype used `window.storage`, a Claude.ai **artifact-only** API. That's
+gone: `Storage.get/set` in the `<script>` block now talks to the backend, with
+`localStorage` demoted to an offline cache (write-through on save, read
+fallback when the server is unreachable). Every save PUTs the *whole* progress
+object, so a failed sync self-heals on the next one.
 
-**Planned fix:** small backend + REST persistence, deployed alongside the
-static frontend on TrueNAS (see Deployment below). The frontend already
-isolates all persistence behind `Storage.get(key)` / `Storage.set(key, value)`
-— swap the body of those two functions to `fetch()` calls against the new API
-instead of `localStorage`, and the rest of the app (Leitner logic, rendering)
-needs no changes.
+Still true: all persistence must go through `Storage.get(key)` /
+`Storage.set(key, value)` — do not call `fetch` or `localStorage` for progress
+anywhere else.
 
-Suggested API shape (keep it this small):
+API (`server.js`, deliberately this small):
 ```
-GET  /api/progress          -> { "<itemId>": {box, next, seen, correct}, ... }
-PUT  /api/progress          -> body: same shape, overwrites (last-write-wins is fine, single user)
+GET  /api/progress   -> { "<itemId>": {box, next, seen, correct}, ... }
+PUT  /api/progress   <- same shape, overwrites (last-write-wins, single user)
+GET  /api/health     -> {"ok":true}
 ```
-SQLite or even a flat JSON file behind a tiny FastAPI/Flask/Express app is
-plenty — this is single-user, low-write-volume, no need for anything heavier.
-No auth needed if it sits behind the same Cloudflare Tunnel access pattern
-already used for `cloud.hannesspitz.de`; otherwise add a single shared-secret
-header.
+Backed by a flat JSON file at `$DATA_DIR/progress.json`, written temp-file +
+rename. Optional `TINGXIE_TOKEN` env enables an `X-Tingxie-Token` check; unset
+it when running behind Cloudflare Access.
 
 ## Deployment target: TrueNAS
 
@@ -64,12 +61,13 @@ so progress is reachable from any device, following the existing pattern:
 Docker container(s) + Cloudflare Tunnel + a subdomain of `hannesspitz.de`
 (e.g. `tingxie.hannesspitz.de`).
 
-Two containers is the natural split once the backend exists:
-1. Static file server (nginx/caddy) for the frontend
-2. Small API service for `/api/progress` (and optionally the TTS relay below)
+**Decided: one container, not two.** `server.js` serves the static frontend
+*and* the API from the same origin — no nginx/caddy, no CORS, one thing to
+keep running. `Dockerfile` + `docker-compose.yml` are in the repo; step-by-step
+tunnel setup is in `DEPLOY.md`. Port is bound to `127.0.0.1` so the tunnel is
+the only ingress. Progress persists via the `./data` bind mount.
 
-A `docker-compose.yml` + Cloudflare Tunnel config for this doesn't exist yet
-— that's an open TODO, not something already decided in detail.
+If the Edge-TTS relay lands, it goes in this same service as `/api/tts`.
 
 ## TTS chain
 
@@ -134,19 +132,53 @@ new colors/components ad hoc:
 
 - Code (identifiers, comments): English
 - User-facing UI strings: German
-- Keep it a single static file for as long as reasonable; only split into
-  `/frontend` + `/backend` once the sync API actually lands
+- Flat layout, no `/frontend` + `/backend` split: `index.html` and `server.js`
+  sit next to each other. Keep it that way unless there's a real reason.
+- No dependencies, in either file. Both are stdlib/browser-only, which is why
+  there is no build step, no lockfile, and no install in the Dockerfile.
+
+## Security invariants
+
+Only the things that are load-bearing and easy to break by accident:
+
+- **Writes stay `PUT` + `Content-Type: application/json`.** This is the whole
+  CSRF defence: neither is reachable from a cross-origin HTML form, and the
+  server sends no CORS headers, so the preflight they force fails. Re-adding
+  `POST` or dropping the content-type check reopens it — a form with
+  `enctype="text/plain"` is a no-preflight "simple request" and the write would
+  land. Don't assume Cloudflare Access covers this; `CF_Authorization` is
+  typically `SameSite=None`.
+- **Static files come from the `STATIC` whitelist, never from `url.pathname`.**
+  Building a path from the request is how traversal gets in.
+- **`ITEMS` is trusted because it's hardcoded.** `showAnswer` interpolates
+  `hanzi`/`pinyin`/`meaning` straight into `innerHTML`. If vocab ever comes
+  from the API or user input, escape at those sites first — that's the one live
+  XSS sink in the app.
+- Progress data reaching the DOM must stay numeric-only (the `validateProgress`
+  check enforces it server-side); it's currently used as array indices, not
+  rendered as text.
+
+Not addressed, deliberately: no rate limiting (single user behind Access), and
+`TINGXIE_TOKEN` lives in `localStorage` when used.
 
 ## Open TODOs (roughly priority order)
 
-1. Backend for cross-device progress sync (see above) + swap `Storage` impl
-2. Docker + Cloudflare Tunnel setup for TrueNAS, subdomain decision
-3. Optional: Edge-TTS relay endpoint for better audio quality
-4. Session shaping: currently introduces *all* due/new items uncapped;
+1. Optional: Edge-TTS relay endpoint for better audio quality, as `/api/tts`
+   in `server.js`
+2. Session shaping: currently introduces *all* due/new items uncapped;
    consider an Anki-style daily new-card limit
-5. Vocab expansion beyond the initial 98 items
+3. Vocab expansion beyond the initial 98 items
+
+Done: backend sync + `Storage` swap; Docker/compose + tunnel docs
+(`tingxie.hannesspitz.de`).
 
 ## Local dev
 
-No build step — just open `tingxie.html` in a browser. Once the backend
-exists, document its run command here.
+No build step, no dependencies:
+
+```sh
+node server.js     # http://localhost:8080, progress in ./data/progress.json
+```
+
+Opening `index.html` as a `file://` URL still renders, but every save will fail
+(no `/api/progress` origin) and fall back to `localStorage` — use the server.

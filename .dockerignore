@@ -1,0 +1,6 @@
+data/
+.env
+.git/
+CLAUDE.md
+DEPLOY.md
+docker-compose.yml

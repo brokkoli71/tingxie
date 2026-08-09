@@ -463,26 +463,47 @@ let revealed = false;
 let rate = 1;
 let zhVoice = null;
 
-// Storage abstraction: uses Claude Artifacts' window.storage when available
-// (claude.ai sandbox), otherwise falls back to localStorage for standalone/
-// self-hosted deployments. NOTE: localStorage does NOT sync across devices —
-// see CLAUDE.md "Open TODOs" for the planned backend-sync replacement.
+// Storage abstraction: talks to the /api/progress backend so progress syncs
+// across devices. localStorage is kept as an offline cache — reads fall back to
+// it when the server is unreachable, writes always land there first so a failed
+// request never loses a grading. Every write PUTs the whole progress object,
+// so a failed save self-heals on the next one.
+// Set localStorage['tingxie-token'] per device if the server runs with
+// TINGXIE_TOKEN; not needed behind Cloudflare Access.
+const API_URL = '/api/progress';
 const Storage = {
-  async get(key){
-    if(typeof window.storage !== 'undefined' && window.storage){
-      try{ return await window.storage.get(key, false); }catch(e){ return null; }
-    }
+  headers(){
+    const h = { 'Content-Type': 'application/json' };
     try{
-      const v = localStorage.getItem(key);
-      return v ? { key, value: v, shared: false } : null;
-    }catch(e){ return null; }
+      const t = localStorage.getItem('tingxie-token');
+      if(t) h['X-Tingxie-Token'] = t;
+    }catch(e){}
+    return h;
+  },
+  async get(key){
+    try{
+      const res = await fetch(API_URL, { headers: this.headers(), cache: 'no-store' });
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const value = JSON.stringify(await res.json());
+      try{ localStorage.setItem(key, value); }catch(e){}
+      return { key, value, shared: false };
+    }catch(e){
+      console.warn('Server nicht erreichbar, nutze lokalen Stand', e);
+      try{
+        const v = localStorage.getItem(key);
+        return v ? { key, value: v, shared: false } : null;
+      }catch(e2){ return null; }
+    }
   },
   async set(key, value){
-    if(typeof window.storage !== 'undefined' && window.storage){
-      try{ return await window.storage.set(key, value, false); }catch(e){ return null; }
+    try{ localStorage.setItem(key, value); }catch(e){}
+    try{
+      const res = await fetch(API_URL, { method: 'PUT', headers: this.headers(), body: value });
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+    }catch(e){
+      console.warn('Sync fehlgeschlagen, lokal gespeichert', e);
     }
-    try{ localStorage.setItem(key, value); return { key, value, shared: false }; }
-    catch(e){ return null; }
+    return { key, value, shared: false };
   }
 };
 
