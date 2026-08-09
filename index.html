@@ -67,15 +67,7 @@
   }
   .wrap{ width:100%; max-width: 540px; }
 
-  header{ margin-bottom: 22px; }
-  .eyebrow{
-    font-family: "JetBrains Mono", monospace;
-    font-size: 12px;
-    letter-spacing: 0.08em;
-    color: var(--ink-soft);
-    text-transform: uppercase;
-    margin: 0 0 6px;
-  }
+  header{ margin-bottom: 12px; }
   h1{
     font-family: "Noto Serif SC", "Source Serif 4", serif;
     font-weight: 700;
@@ -179,21 +171,46 @@
     color: var(--jade);
     background: var(--jade-soft);
   }
-  .replay-note{
+  /* Handwriting area: one 米字格 cell per character, like squared practice
+     paper. Answers are drawn, not typed — writing is the point of the app. */
+  /* Compact top bar: title, the one number that matters, and a disclosure for
+     everything that isn't needed while answering a card. */
+  .topbar{
+    display:flex;
+    align-items:baseline;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .topbar .stats{ margin: 0; }
+  .details-toggle{
+    margin-left:auto;
+    font-family:"JetBrains Mono", monospace;
+    font-size: 14px;
+    line-height: 1;
+    background: transparent;
+    border: 1.5px solid var(--ink-soft);
+    color: var(--ink-soft);
+    border-radius: 50%;
+    width: 28px; height: 28px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .details-toggle[aria-expanded="true"]{ border-color: var(--seal); color: var(--seal-dark); }
+  .details.is-hidden{ display:none; }
+  .details{ margin-bottom: 14px; }
+  .detail-stats{
     font-family:"JetBrains Mono", monospace;
     font-size: 11px;
     color: var(--ink-soft);
-    margin-left: auto;
-    text-align:right;
+    margin-top: 10px;
   }
+  .detail-stats b{ color: var(--ink); font-weight:600; }
 
-  /* Handwriting area: one 米字格 cell per character, like squared practice
-     paper. Answers are drawn, not typed — writing is the point of the app. */
   .mode-chips{
     display:flex;
     gap: 8px;
     flex-wrap:wrap;
-    margin: 4px 0 14px;
+    margin: 0 0 10px;
   }
   .mode-chip{
     font-family:"JetBrains Mono", monospace;
@@ -253,14 +270,22 @@
     touch-action: none;
   }
   .write-cell.is-hidden{ display:none; }
-  .write-pager{
+  /* Pager and tools share one row — two separate rows of controls was most of
+     the clutter under the writing cell. */
+  .write-bar{
     display:flex;
     align-items:center;
-    justify-content:center;
-    gap: 10px;
-    margin: 10px 0;
+    gap: 8px;
+    margin: 10px 0 0;
+  }
+  .write-pager{
+    display:inline-flex;
+    align-items:center;
+    gap: 6px;
+    margin-right: auto;
   }
   .write-pager.is-hidden{ display:none; }
+  .write-bar .write-pager.is-hidden ~ #undoBtn{ margin-left: auto; }
   .write-pos{
     font-family:"JetBrains Mono", monospace;
     font-size: 12px;
@@ -420,7 +445,6 @@
   }
 
   @media (max-width: 420px){
-    h1{ font-size: 32px; }
     .card{ padding: 22px 16px 18px; }
   }
 
@@ -432,6 +456,13 @@
      layout (listen, then write, top to bottom) is untouched.
      .tag is absolutely positioned and unaffected. */
   @media (max-width: 640px){
+    /* Declutter: the card should start above the fold, so everything that
+       isn't the current question gets shrunk or dropped. */
+    h1{ font-size: 24px; }
+    h1 .latin{ display:none; }
+    .page-footer{ display:none; }
+    body{ padding: 14px 14px 24px; }
+
     .card{ display:flex; flex-direction:column; }
     .grid-input-wrap{ order:1; margin-bottom: 14px; }
     .controls-row{ order:2; margin: 0 0 16px; }
@@ -439,9 +470,8 @@
     #answerBox{ order:4; }
     /* Play sits far right, inside the right thumb's arc. Reordered rather
        than row-reversed, so text still reads left-to-right. */
-    .controls-row .replay-note{ order:1; margin-left:0; margin-right:auto; }
-    .controls-row .rate-toggle{ order:2; }
-    .controls-row .play-btn{ order:3; }
+    .controls-row .rate-toggle{ order:1; margin-right:auto; }
+    .controls-row .play-btn{ order:2; }
     /* Bigger tap target now that it's the primary thumb control. */
     .play-btn{ width: 68px; height: 68px; }
     .play-btn svg{ width: 27px; height: 27px; }
@@ -453,13 +483,18 @@
 <div class="grid-wash"></div>
 
 <div class="wrap">
-  <header>
-    <p class="eyebrow">听写 · Dictation Mode</p>
+  <header class="topbar">
     <h1>听写 <span class="latin">— Hörverstehen &amp; Vokabeltraining</span></h1>
     <div class="stats" id="stats"></div>
+    <button class="details-toggle" id="detailsBtn" aria-expanded="false" aria-label="Details anzeigen">▾</button>
+  </header>
+  <!-- Set-once controls and status, collapsed so the card starts above the
+       fold on a phone. -->
+  <div class="details is-hidden" id="details">
     <div class="mode-chips" id="modeChips"></div>
     <div class="boxes" id="boxes"></div>
-  </header>
+    <div class="detail-stats" id="detailStats"></div>
+  </div>
 
   <!-- Hidden by default; updateVoiceBanner() fills in the actual reason. -->
   <div class="voice-warning" id="voiceWarning">
@@ -468,7 +503,7 @@
 
   <div class="card" id="card"></div>
 
-  <footer>Fortschritt wird auf deinem Server gespeichert und über alle Geräte synchronisiert · Karten stammen aus HSK2/3 (ungefähre Einstufung)</footer>
+  <footer class="page-footer">Fortschritt wird auf deinem Server gespeichert und über alle Geräte synchronisiert · Karten stammen aus HSK2/3 (ungefähre Einstufung)</footer>
 </div>
 
 <script>
@@ -897,11 +932,12 @@ function renderStats(){
       if((e.next || 0) <= now) dueCount++;
     }
   }
-  document.getElementById('stats').innerHTML = `
-    <span>Fällig: <b>${dueCount}</b></span>
-    <span>Karten gesamt: <b>${total}</b></span>
-    <span>Gemeistert: <b>${boxCounts[5]}</b></span>
-  `;
+  // Only the due count earns a place in the top bar; the rest is status.
+  document.getElementById('stats').innerHTML = `<span>Fällig: <b>${dueCount}</b></span>`;
+  const detail = document.getElementById('detailStats');
+  if(detail){
+    detail.innerHTML = `Karten gesamt: <b>${total}</b> · Gemeistert: <b>${boxCounts[5]}</b> · Neu: <b>${boxCounts[0]}</b>`;
+  }
   const boxesEl = document.getElementById('boxes');
   boxesEl.innerHTML = '';
   for(let b = 1; b <= 5; b++){
@@ -981,14 +1017,14 @@ function render(){
     <div class="grid-input-wrap">
       <div class="grid-label">${mode.ask}</div>
       <div class="write-grid" id="writeGrid"></div>
-      <div class="write-pager" id="writePager">
-        <button class="write-tool" id="prevCharBtn" aria-label="Vorheriges Zeichen">‹</button>
-        <span class="write-pos" id="writePos"></span>
-        <button class="write-tool" id="nextCharBtn" aria-label="Nächstes Zeichen">›</button>
-      </div>
-      <div class="write-tools">
-        <button class="write-tool" id="undoBtn">rückgängig</button>
-        <button class="write-tool" id="clearBtn">alles löschen</button>
+      <div class="write-bar">
+        <span class="write-pager" id="writePager">
+          <button class="write-tool" id="prevCharBtn" aria-label="Vorheriges Zeichen">‹</button>
+          <span class="write-pos" id="writePos"></span>
+          <button class="write-tool" id="nextCharBtn" aria-label="Nächstes Zeichen">›</button>
+        </span>
+        <button class="write-tool" id="undoBtn" aria-label="Letzten Strich zurücknehmen">↶</button>
+        <button class="write-tool" id="clearBtn" aria-label="Alles löschen">löschen</button>
       </div>
     </div>
   ` : `<div class="prompt-hint">${mode.ask} Überleg dir die Antwort, dann aufdecken.</div>`;
@@ -1001,7 +1037,6 @@ function render(){
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3z"/><path d="M16.5 12c0-1.77-.77-3.29-2-4.24v8.48c1.23-.95 2-2.47 2-4.24z"/></svg>
       </button>
       <button class="rate-toggle ${slowMode ? 'active' : ''}" id="rateBtn">langsam</button>
-      <span class="replay-note">nochmal abspielbar</span>
     </div>
 
     ${answerAreaHtml}
@@ -1247,8 +1282,28 @@ function showAnswer(item){
   document.getElementById('gEasy').onclick = () => grade('easy');
 }
 
+// Disclosure for modes/boxes/totals. Collapsed by default; the choice sticks
+// per device, since it's a UI preference rather than progress.
+const DETAILS_KEY = 'tingxie-details';
+function setDetails(open){
+  const panel = document.getElementById('details');
+  const btn = document.getElementById('detailsBtn');
+  if(!panel || !btn) return;
+  panel.classList.toggle('is-hidden', !open);
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  btn.textContent = open ? '▴' : '▾';
+  try{ localStorage.setItem(DETAILS_KEY, open ? '1' : '0'); }catch(e){}
+}
+document.getElementById('detailsBtn').onclick = () => {
+  const open = document.getElementById('detailsBtn').getAttribute('aria-expanded') === 'true';
+  setDetails(!open);
+};
+
 (async function init(){
   loadModes();
+  let open = false;
+  try{ open = localStorage.getItem(DETAILS_KEY) === '1'; }catch(e){}
+  setDetails(open);
   await loadProgress();
   buildQueue();
   render();
