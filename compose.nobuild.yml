@@ -15,7 +15,12 @@ services:
     restart: unless-stopped
     command: node /app/server.js
     working_dir: /app
-    user: "1000:1000"
+    # Must be an id that can read the source and write ./data. On TrueNAS the
+    # dataset is rarely owned by uid 1000, and a mismatch shows up as a
+    # confusing "Cannot find module '/app/server.js'" — Node reports a
+    # permission failure on the parent directory as MODULE_NOT_FOUND.
+    # Set TINGXIE_UID/GID in .env to the dataset owner; see DEPLOY.md.
+    user: "${TINGXIE_UID:-1000}:${TINGXIE_GID:-1000}"
     ports:
       # Host port only; the container always listens on 8080 internally.
       # 8080 on the host is taken on TrueNAS, hence the default of 8477.

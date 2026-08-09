@@ -61,6 +61,22 @@ paths to absolute ones under `/mnt/<pool>/apps/tingxie`.
 
 Either way, clone the repo to the host first — the app needs the source on disk.
 
+### Run-as user (TrueNAS gotcha)
+
+The container must run as an id that can read the checkout and write `./data`.
+TrueNAS datasets are rarely owned by uid 1000, and getting this wrong fails as
+`Cannot find module '/app/server.js'` — Node surfaces a permission failure on
+the parent directory as `MODULE_NOT_FOUND`, not as `EACCES`. Note that a plain
+`docker run` test won't reproduce it: that runs as root and skips the check.
+
+Pin the ids to whatever owns the directory:
+
+```sh
+cd /mnt/<pool>/apps/tingxie
+printf 'TINGXIE_UID=%s\nTINGXIE_GID=%s\n' "$(stat -c %u .)" "$(stat -c %g .)" >> .env
+mkdir -p data && sudo chown "$(stat -c %u .):$(stat -c %g .)" data
+```
+
 ## Cloudflare Tunnel → tingxie.hannesspitz.de
 
 Same pattern as `cloud.hannesspitz.de`. If that tunnel already runs on this host,
