@@ -189,6 +189,53 @@
 
   /* Handwriting area: one 米字格 cell per character, like squared practice
      paper. Answers are drawn, not typed — writing is the point of the app. */
+  .mode-chips{
+    display:flex;
+    gap: 8px;
+    flex-wrap:wrap;
+    margin: 4px 0 14px;
+  }
+  .mode-chip{
+    font-family:"JetBrains Mono", monospace;
+    font-size: 12px;
+    background: transparent;
+    border: 1.5px solid var(--ink-soft);
+    color: var(--ink-soft);
+    border-radius: 20px;
+    padding: 6px 13px;
+    cursor: pointer;
+    opacity: 0.5;
+  }
+  .mode-chip.on{
+    opacity: 1;
+    border-color: var(--seal);
+    color: var(--seal-dark);
+    background: rgba(179,53,42,0.07);
+  }
+
+  /* Prompt shown instead of (or beside) audio, depending on the mode. */
+  .prompt-de{
+    font-family:"Source Serif 4", Georgia, serif;
+    font-size: 26px;
+    line-height: 1.3;
+    color: var(--ink);
+    margin: 6px 0 16px;
+  }
+  .prompt-hz{
+    font-family:"Noto Serif SC", serif;
+    font-size: 52px;
+    line-height: 1.2;
+    color: var(--ink);
+    margin: 6px 0 16px;
+    letter-spacing: 0.04em;
+  }
+  .prompt-hint{
+    font-family:"JetBrains Mono", monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-bottom: 16px;
+  }
+
   .write-grid{ margin-bottom: 10px; }
   /* One character at a time, as large as the card allows — a thumb-drawn
      hanzi needs room for strokes, so the cell takes the full width. */
@@ -410,6 +457,7 @@
     <p class="eyebrow">听写 · Dictation Mode</p>
     <h1>听写 <span class="latin">— Hörverstehen &amp; Vokabeltraining</span></h1>
     <div class="stats" id="stats"></div>
+    <div class="mode-chips" id="modeChips"></div>
     <div class="boxes" id="boxes"></div>
   </header>
 
@@ -599,57 +647,142 @@ const Storage = {
   }
 };
 
+// Before modes existed, progress was keyed by bare item id. Those entries are
+// all dictation history, so they become the "listen" mode's boxes; the other
+// two modes start fresh. Runs on every load and is idempotent.
+function migrateProgress(p){
+  let changed = false;
+  const out = {};
+  for(const [key, value] of Object.entries(p)){
+    if(key.includes(':')) out[key] = value;
+    else { out[cardKey(key, 'listen')] = value; changed = true; }
+  }
+  return { progress: out, changed };
+}
+
 async function loadProgress(){
   try{
     const res = await Storage.get(STORAGE_KEY);
     if(res && res.value) progress = JSON.parse(res.value);
   }catch(e){ progress = {}; }
+  const migrated = migrateProgress(progress);
+  progress = migrated.progress;
+  // Persist immediately so the old keys don't get re-migrated forever, and so
+  // other devices see the new shape.
+  if(migrated.changed) saveProgress();
 }
 async function saveProgress(){
   try{ await Storage.set(STORAGE_KEY, JSON.stringify(progress)); }
   catch(e){ console.error('Speichern fehlgeschlagen', e); }
 }
 
-function getEntry(id){
-  return progress[id] || { box: 0, next: 0, seen: 0, correct: 0 };
+// ---- Exercise modes --------------------------------------------------------
+// Three named exercise types rather than an input×output matrix: the matrix
+// produces mostly degenerate pairs and turns the app into a settings screen.
+// Sessions mix all enabled modes instead of drilling one at a time.
+//
+// Each (item, mode) pair schedules independently — recognising 大家 by ear and
+// producing it from "alle (Personen)" are different skills that decay at
+// different rates, so one shared box would mis-schedule both.
+const MODES = [
+  { id: 'listen', chip: 'Hören',     tag: 'Hören',     ask: 'Was hast du gehört? Schreib die Zeichen.' },
+  { id: 'de2hz',  chip: 'Schreiben', tag: 'Schreiben', ask: 'Wie schreibt man das?' },
+  { id: 'hz2de',  chip: 'Lesen',     tag: 'Lesen',     ask: 'Was bedeutet das?' },
+];
+const MODE_IDS = MODES.map(m => m.id);
+const MODES_KEY = 'tingxie-modes';
+// Cap on unseen cards per session. With three modes the bank is ~294 cards, so
+// without this the first session would introduce every one of them at once.
+const NEW_PER_SESSION = 12;
+
+let enabledModes = MODE_IDS.slice();
+
+function loadModes(){
+  try{
+    const raw = localStorage.getItem(MODES_KEY);
+    if(raw){
+      const list = JSON.parse(raw).filter(m => MODE_IDS.includes(m));
+      if(list.length) enabledModes = list;
+    }
+  }catch(e){}
+}
+function saveModes(){
+  try{ localStorage.setItem(MODES_KEY, JSON.stringify(enabledModes)); }catch(e){}
+}
+function modeInfo(id){ return MODES.find(m => m.id === id) || MODES[0]; }
+
+// Progress is keyed "<itemId>:<mode>". Item ids never contain ':', so
+// splitting on the last one is unambiguous.
+function cardKey(id, mode){ return id + ':' + mode; }
+function parseKey(key){
+  const i = key.lastIndexOf(':');
+  return { id: key.slice(0, i), mode: key.slice(i + 1) };
+}
+
+function getEntry(key){
+  return progress[key] || { box: 0, next: 0, seen: 0, correct: 0 };
+}
+
+function shuffle(a){
+  for(let i = a.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
 function buildQueue(){
   const now = Date.now();
-  const due = ITEMS.filter(it => getEntry(it.id).next <= now);
-  for(let i = due.length - 1; i > 0; i--){
-    const j = Math.floor(Math.random() * (i+1));
-    [due[i], due[j]] = [due[j], due[i]];
+  const due = [];
+  const fresh = [];
+  for(const mode of enabledModes){
+    for(const it of ITEMS){
+      const key = cardKey(it.id, mode);
+      const e = progress[key];
+      if(!e) fresh.push(key);
+      else if((e.next || 0) <= now) due.push(key);
+    }
   }
-  queue = due.map(it => it.id);
+  shuffle(due);
+  shuffle(fresh);
+  // Mixed, not blocked by mode: reviews and new cards interleave.
+  queue = shuffle(due.concat(fresh.slice(0, NEW_PER_SESSION)));
   qIndex = 0;
 }
 
-function currentItem(){
+function currentCard(){
   if(qIndex >= queue.length) return null;
-  return ITEMS.find(it => it.id === queue[qIndex]);
+  const { id, mode } = parseKey(queue[qIndex]);
+  const item = ITEMS.find(it => it.id === id);
+  return item ? { item, mode, key: queue[qIndex] } : null;
+}
+
+function currentItem(){
+  const c = currentCard();
+  return c ? c.item : null;
 }
 
 function grade(result){
-  const item = currentItem();
-  if(!item) return;
-  const entry = getEntry(item.id);
+  const card = currentCard();
+  if(!card) return;
+  const key = card.key;
+  const entry = getEntry(key);
   entry.seen = (entry.seen || 0) + 1;
   const now = Date.now();
 
   if(result === 'again'){
     entry.box = 1;
     entry.next = now + INTERVAL_MS[1];
-    progress[item.id] = entry;
+    progress[key] = entry;
     // requeue a few cards later in this session
     const reinsertAt = Math.min(qIndex + 4, queue.length);
-    queue.splice(reinsertAt, 0, item.id);
+    queue.splice(reinsertAt, 0, key);
   } else {
     entry.correct = (entry.correct || 0) + 1;
     const bump = result === 'easy' ? 2 : 1;
     entry.box = Math.min((entry.box || 0) + bump, 5);
     entry.next = now + INTERVAL_MS[entry.box];
-    progress[item.id] = entry;
+    progress[key] = entry;
   }
   saveProgress();
   qIndex++;
@@ -750,15 +883,23 @@ if('speechSynthesis' in window){
 
 function renderStats(){
   const now = Date.now();
-  const dueCount = ITEMS.filter(it => getEntry(it.id).next <= now).length;
-  const boxCounts = [0,0,0,0,0,0]; // index 0 unused-ish, 0=new
-  ITEMS.forEach(it => {
-    const e = progress[it.id];
-    if(!e) boxCounts[0]++; else boxCounts[e.box]++;
-  });
+  let dueCount = 0;
+  let total = 0;
+  const boxCounts = [0,0,0,0,0,0]; // 0 = not yet seen
+  // Counts follow the enabled modes, so turning a mode off shrinks the deck
+  // rather than leaving phantom cards in the totals.
+  for(const mode of enabledModes){
+    for(const it of ITEMS){
+      total++;
+      const e = progress[cardKey(it.id, mode)];
+      if(!e){ boxCounts[0]++; dueCount++; continue; }
+      boxCounts[e.box]++;
+      if((e.next || 0) <= now) dueCount++;
+    }
+  }
   document.getElementById('stats').innerHTML = `
-    <span>Fällig heute: <b>${dueCount}</b></span>
-    <span>Karten gesamt: <b>${ITEMS.length}</b></span>
+    <span>Fällig: <b>${dueCount}</b></span>
+    <span>Karten gesamt: <b>${total}</b></span>
     <span>Gemeistert: <b>${boxCounts[5]}</b></span>
   `;
   const boxesEl = document.getElementById('boxes');
@@ -771,10 +912,35 @@ function renderStats(){
   }
 }
 
+function renderModeChips(){
+  const el = document.getElementById('modeChips');
+  if(!el) return;
+  el.innerHTML = '';
+  for(const m of MODES){
+    const on = enabledModes.includes(m.id);
+    const b = document.createElement('button');
+    b.className = 'mode-chip' + (on ? ' on' : '');
+    b.textContent = m.chip;
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    b.onclick = () => {
+      const next = on ? enabledModes.filter(x => x !== m.id) : enabledModes.concat([m.id]);
+      if(!next.length) return; // never leave the deck with no modes at all
+      enabledModes = MODE_IDS.filter(x => next.includes(x)); // keep canonical order
+      saveModes();
+      buildQueue();
+      revealed = false;
+      render();
+    };
+    el.appendChild(b);
+  }
+}
+
 function render(){
   renderStats();
+  renderModeChips();
   const cardEl = document.getElementById('card');
-  const item = currentItem();
+  const card = currentCard();
+  const item = card && card.item;
 
   if(!item){
     cardEl.innerHTML = `
@@ -785,32 +951,35 @@ function render(){
       </div>
     `;
     document.getElementById('extraBtn').onclick = () => {
-      queue = ITEMS.map(it => it.id);
-      for(let i = queue.length - 1; i > 0; i--){
-        const j = Math.floor(Math.random() * (i+1));
-        [queue[i], queue[j]] = [queue[j], queue[i]];
-      }
+      const all = [];
+      for(const mode of enabledModes) for(const it of ITEMS) all.push(cardKey(it.id, mode));
+      queue = shuffle(all);
       qIndex = 0;
       revealed = false;
       render();
     };
+    cells = [];
+    undoOrder = [];
     return;
   }
 
-  const tagLabel = `HSK${item.level} · ${item.type === 'word' ? 'Wort' : 'Satz'}`;
+  const mode = modeInfo(card.mode);
+  const tagLabel = `HSK${item.level} · ${item.type === 'word' ? 'Wort' : 'Satz'} · ${mode.tag}`;
 
-  cardEl.innerHTML = `
-    <div class="tag">${tagLabel}</div>
-    <div class="controls-row">
-      <button class="play-btn" id="playBtn" aria-label="Abspielen">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3z"/><path d="M16.5 12c0-1.77-.77-3.29-2-4.24v8.48c1.23-.95 2-2.47 2-4.24z"/></svg>
-      </button>
-      <button class="rate-toggle ${slowMode ? 'active' : ''}" id="rateBtn">langsam</button>
-      <span class="replay-note">nochmal abspielbar</span>
-    </div>
+  // What the card shows before the reveal. "listen" gives away nothing but the
+  // audio; the other two show one side and ask for the other. Audio stays
+  // available everywhere, deliberately — in de2hz it's a pronunciation hint,
+  // and using it is the learner's call.
+  const promptHtml =
+    card.mode === 'de2hz' ? `<div class="prompt-de">${item.meaning}</div>` :
+    card.mode === 'hz2de' ? `<div class="prompt-hz">${item.hanzi}</div>` : '';
 
+  // Writing is the answer for listen/de2hz. For hz2de the answer is the German
+  // meaning, which is self-assessed on reveal, so there's nothing to draw.
+  const wantsWriting = card.mode === 'listen' || card.mode === 'de2hz';
+  const answerAreaHtml = wantsWriting ? `
     <div class="grid-input-wrap">
-      <div class="grid-label">Was hast du gehört? Schreib die Zeichen.</div>
+      <div class="grid-label">${mode.ask}</div>
       <div class="write-grid" id="writeGrid"></div>
       <div class="write-pager" id="writePager">
         <button class="write-tool" id="prevCharBtn" aria-label="Vorheriges Zeichen">‹</button>
@@ -822,13 +991,32 @@ function render(){
         <button class="write-tool" id="clearBtn">alles löschen</button>
       </div>
     </div>
+  ` : `<div class="prompt-hint">${mode.ask} Überleg dir die Antwort, dann aufdecken.</div>`;
+
+  cardEl.innerHTML = `
+    <div class="tag">${tagLabel}</div>
+    ${promptHtml}
+    <div class="controls-row">
+      <button class="play-btn" id="playBtn" aria-label="Abspielen">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3z"/><path d="M16.5 12c0-1.77-.77-3.29-2-4.24v8.48c1.23-.95 2-2.47 2-4.24z"/></svg>
+      </button>
+      <button class="rate-toggle ${slowMode ? 'active' : ''}" id="rateBtn">langsam</button>
+      <span class="replay-note">nochmal abspielbar</span>
+    </div>
+
+    ${answerAreaHtml}
 
     <button class="reveal-btn" id="revealBtn">Antwort zeigen</button>
 
     <div id="answerBox"></div>
   `;
 
-  buildWriteGrid(item);
+  if(wantsWriting){
+    buildWriteGrid(item);
+  } else {
+    cells = [];
+    undoOrder = [];
+  }
 
   document.getElementById('playBtn').onclick = () => speak(item.hanzi);
   document.getElementById('rateBtn').onclick = (e) => {
@@ -1060,6 +1248,7 @@ function showAnswer(item){
 }
 
 (async function init(){
+  loadModes();
   await loadProgress();
   buildQueue();
   render();

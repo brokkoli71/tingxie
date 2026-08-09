@@ -111,9 +111,33 @@ dependency-free.
 { id: 'w01', hanzi: '大家', pinyin: 'dàjiā', meaning: 'alle (Personen)', level: 2, type: 'word' }
 // type is 'word' | 'sentence'; level is an approximate HSK 2.0-standard tag, not exam-precise
 
-// progress: per-item spaced-repetition state, keyed by item id
-{ box: 1-5, next: <timestamp ms, due date>, seen: <count>, correct: <count> }
+// progress: spaced-repetition state, keyed "<itemId>:<mode>" — one Leitner
+// box per (item, exercise mode), since recognition and production decay
+// differently. Item ids never contain ':'.
+{ 'w01:listen': { box: 1-5, next: <timestamp ms>, seen: <count>, correct: <count> } }
 ```
+
+`migrateProgress()` rewrites pre-modes keys (bare `w01`) to `w01:listen` on
+load and saves immediately; it's idempotent, so it can stay indefinitely.
+
+## Exercise modes
+
+Three named types (`MODES` in `index.html`), *not* an input×output matrix —
+the matrix yields 12 mostly-degenerate combinations and turns the app into a
+settings screen. User vocabulary for the axes is pinyin / deutsch / hanzi.
+
+| id | chip | prompt | answer |
+|----|------|--------|--------|
+| `listen` | Hören | audio only | write the hanzi |
+| `de2hz` | Schreiben | German meaning | write the hanzi |
+| `hz2de` | Lesen | hanzi | German meaning, self-assessed (no writing) |
+
+Audio is available in *every* mode by design — in `de2hz` it's a pronunciation
+hint, and whether to use it is the learner's call. Sessions **mix** modes
+rather than blocking by type; chips in the header toggle modes on/off (stored
+per-device in `localStorage`, not in synced progress) and the last enabled mode
+cannot be switched off. `NEW_PER_SESSION` (12) caps unseen cards per session —
+without it the first session would introduce all ~294.
 
 Leitner intervals (`INTERVAL_MS` in the code): box1 = 10 min, box2 = 1 day,
 box3 = 3 days, box4 = 7 days, box5 = 21 days. Grading "Nochmal" resets to
@@ -185,16 +209,10 @@ Not addressed, deliberately: no rate limiting (single user behind Access), and
 
 ## Open TODOs (roughly priority order)
 
-1. Exercise modes beyond dictation. Agreed shape: three *named* types, not an
-   input×output matrix (12 combos, most degenerate) — Hören→Hanzi (today),
-   Deutsch→Hanzi (production), Hanzi→Deutsch (reading); audio available in
-   all. Sessions mix types rather than making you pick one. Progress keys
-   become per (item, mode), because recognition and production decay at
-   different rates — migrate existing bare `w01` keys to the dictation mode.
-   Note this triples the card count (98 → ~294), which makes item 2 a
-   prerequisite rather than an option.
-2. Session shaping: currently introduces *all* due/new items uncapped;
-   consider an Anki-style daily new-card limit
+1. Session shaping: `NEW_PER_SESSION` caps new cards *per session*, not per
+   day — reloading grants another 12. A real daily cap needs a persisted
+   date+count; the progress API accepts extra fields, so a `__meta` entry
+   would pass validation, but it's a hack worth thinking about first.
 3. Vocab expansion beyond the initial 98 items
 
 Done: backend sync + `Storage` swap; Docker/compose + tunnel docs
