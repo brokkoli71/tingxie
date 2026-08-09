@@ -17,10 +17,13 @@ services:
     working_dir: /app
     user: "1000:1000"
     ports:
+      # Host port only; the container always listens on 8080 internally.
+      # 8080 on the host is taken on TrueNAS, hence the default of 8477.
+      # Override with TINGXIE_PORT in .env if that one clashes too.
       # Reached from outside only through the Cloudflare Tunnel.
       # If cloudflared runs as a container on the same Docker network,
       # drop this and point the tunnel at tingxie:8080.
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:${TINGXIE_PORT:-8477}:8080"
     volumes:
       - ./:/app:ro          # source, read-only — the app never writes here
       - ./data:/data        # progress.json lives here

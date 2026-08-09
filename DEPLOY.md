@@ -21,7 +21,7 @@ git clone <this repo> /mnt/<pool>/apps/tingxie
 cd /mnt/<pool>/apps/tingxie
 mkdir -p data
 docker compose up -d --build
-curl localhost:8080/api/health     # -> {"ok":true}
+curl localhost:8477/api/health
 ```
 
 The compose file binds the port to `127.0.0.1` only, so nothing is exposed on
@@ -55,7 +55,7 @@ SSH instead.
 The custom-app form takes an **image reference and cannot build a Dockerfile**,
 so use the same no-build approach: image `node:22-alpine`, command
 `node /app/server.js`, and host-path mounts for the checked-out repo (`/app`,
-read-only) and the data directory (`/data`). Port 8080. If your version offers
+read-only) and the data directory (`/data`). Host port 8477 → container port 8080 (8080 is taken on TrueNAS). If your version offers
 *Install via YAML*, paste `compose.nobuild.yml` directly and adjust the relative
 paths to absolute ones under `/mnt/<pool>/apps/tingxie`.
 
@@ -71,7 +71,7 @@ just add a hostname to it (step 2) instead of creating a new tunnel.
    `truenas`, then install the connector with the command it shows.)
 2. **Public Hostname** tab → *Add a public hostname*:
    - Subdomain `tingxie`, Domain `hannesspitz.de`
-   - Service: **HTTP** → URL `localhost:8080`
+   - Service: **HTTP** → URL `localhost:8477` (the host port from `TINGXIE_PORT`)
      (if `cloudflared` itself runs in Docker on the same bridge network, use
      `tingxie:8080` and drop the `127.0.0.1` port binding from compose)
 3. Save. The DNS CNAME is created automatically — no manual DNS record.
