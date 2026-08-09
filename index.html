@@ -492,7 +492,15 @@ let progress = {};
 let queue = [];
 let qIndex = 0;
 let revealed = false;
-let rate = 1;
+// Playback speed. Sentences default slower than single words: at full speed a
+// whole sentence runs together before you can parse it, which is the point at
+// which dictation stops training anything. "langsam" is a manual override on
+// top, and once switched on it stays on until switched off.
+const RATE_SLOW = 0.7;
+const RATE_SENTENCE = 0.85;
+let slowMode = false;
+function baseRate(item){ return item && item.type === 'sentence' ? RATE_SENTENCE : 1; }
+function currentRate(){ return slowMode ? RATE_SLOW : baseRate(currentItem()); }
 let zhVoice = null;
 
 // Storage abstraction: talks to the /api/progress backend so progress syncs
@@ -609,7 +617,7 @@ let onlineAudio = null;
 let serverTts = true;
 
 function speak(text, r){
-  const spd = r || rate;
+  const spd = r || currentRate();
   if(serverTts){ speakServer(text, spd); return; }
   speakLocalOrOnline(text, spd);
 }
@@ -745,7 +753,7 @@ function render(){
       <button class="play-btn" id="playBtn" aria-label="Abspielen">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3z"/><path d="M16.5 12c0-1.77-.77-3.29-2-4.24v8.48c1.23-.95 2-2.47 2-4.24z"/></svg>
       </button>
-      <button class="rate-toggle ${rate === 0.7 ? 'active' : ''}" id="rateBtn">langsam</button>
+      <button class="rate-toggle ${slowMode ? 'active' : ''}" id="rateBtn">langsam</button>
       <span class="replay-note">nochmal abspielbar</span>
     </div>
 
@@ -761,8 +769,8 @@ function render(){
 
   document.getElementById('playBtn').onclick = () => speak(item.hanzi);
   document.getElementById('rateBtn').onclick = (e) => {
-    rate = rate === 0.7 ? 1 : 0.7;
-    e.target.classList.toggle('active', rate === 0.7);
+    slowMode = !slowMode;
+    e.target.classList.toggle('active', slowMode);
     speak(item.hanzi);
   };
   document.getElementById('revealBtn').onclick = () => {

@@ -71,6 +71,11 @@ If the Edge-TTS relay lands, it goes in this same service as `/api/tts`.
 
 ## TTS chain
 
+Playback speed: words play at 1.0, sentences default to 0.85 (`RATE_SENTENCE`)
+because a full-speed sentence blurs together before it can be parsed. The
+"langsam" toggle (`slowMode`, 0.7) overrides both and persists across cards
+until switched off.
+
 **Current order** (best first), see `speak()` in `index.html`:
 
 0. **`/api/tts`** — Edge-TTS neural relay (`tts/tts.py`, service `tts` in
