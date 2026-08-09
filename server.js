@@ -20,9 +20,21 @@ const TTS_URL = process.env.TTS_URL || '';
 
 const MAX_BODY = 2 * 1024 * 1024; // progress for a few thousand items, generously
 
+// Explicit whitelist: paths are never built from the request, so there is no
+// traversal surface. Add a line here when adding a served file.
+const HTML = 'text/html; charset=utf-8';
+const PNG = 'image/png';
+const YEAR = 'public, max-age=31536000';
 const STATIC = {
-  '/': { file: 'index.html', type: 'text/html; charset=utf-8' },
-  '/index.html': { file: 'index.html', type: 'text/html; charset=utf-8' },
+  '/': { file: 'index.html', type: HTML },
+  '/index.html': { file: 'index.html', type: HTML },
+  '/manifest.webmanifest': { file: 'manifest.webmanifest', type: 'application/manifest+json; charset=utf-8' },
+  '/icons/icon-192.png': { file: 'icons/icon-192.png', type: PNG, cache: YEAR },
+  '/icons/icon-512.png': { file: 'icons/icon-512.png', type: PNG, cache: YEAR },
+  '/icons/icon-maskable-512.png': { file: 'icons/icon-maskable-512.png', type: PNG, cache: YEAR },
+  '/icons/apple-touch-icon.png': { file: 'icons/apple-touch-icon.png', type: PNG, cache: YEAR },
+  '/icons/favicon-32.png': { file: 'icons/favicon-32.png', type: PNG, cache: YEAR },
+  '/favicon.ico': { file: 'icons/favicon-32.png', type: PNG, cache: YEAR },
 };
 
 function send(res, status, body, headers = {}) {
@@ -190,7 +202,10 @@ const server = http.createServer(async (req, res) => {
       return send(res, 404, 'Not found', { 'Content-Type': 'text/plain; charset=utf-8' });
     }
     const body = await fs.readFile(path.join(__dirname, entry.file));
-    return send(res, 200, req.method === 'HEAD' ? '' : body, { 'Content-Type': entry.type });
+    return send(res, 200, req.method === 'HEAD' ? '' : body, {
+      'Content-Type': entry.type,
+      ...(entry.cache ? { 'Cache-Control': entry.cache } : {}),
+    });
   } catch (e) {
     const status = e.status || 500;
     if (status === 500) console.error('request failed', req.method, url.pathname, e);
