@@ -189,22 +189,39 @@
 
   /* Handwriting area: one 米字格 cell per character, like squared practice
      paper. Answers are drawn, not typed — writing is the point of the app. */
-  .write-grid{
-    display:flex;
-    flex-wrap:wrap;
-    gap: 8px;
-    margin-bottom: 10px;
-  }
+  .write-grid{ margin-bottom: 10px; }
+  /* One character at a time, as large as the card allows — a thumb-drawn
+     hanzi needs room for strokes, so the cell takes the full width. */
   .write-cell{
-    width: 74px; height: 74px;
+    width: 100%;
+    max-width: 360px;
+    aspect-ratio: 1 / 1;
     border: 1.5px solid var(--seal);
-    border-radius: 4px;
+    border-radius: 6px;
     background: #fffdf8;
     display:block;
+    margin: 0 auto;
     cursor: crosshair;
     /* Without this the browser scrolls the page instead of drawing. */
     touch-action: none;
   }
+  .write-cell.is-hidden{ display:none; }
+  .write-pager{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap: 10px;
+    margin: 10px 0;
+  }
+  .write-pager.is-hidden{ display:none; }
+  .write-pos{
+    font-family:"JetBrains Mono", monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    min-width: 104px;
+    text-align:center;
+  }
+  .write-pos b{ color: var(--ink); }
   .write-tools{
     display:flex;
     gap: 8px;
@@ -795,6 +812,11 @@ function render(){
     <div class="grid-input-wrap">
       <div class="grid-label">Was hast du gehört? Schreib die Zeichen.</div>
       <div class="write-grid" id="writeGrid"></div>
+      <div class="write-pager" id="writePager">
+        <button class="write-tool" id="prevCharBtn" aria-label="Vorheriges Zeichen">‹</button>
+        <span class="write-pos" id="writePos"></span>
+        <button class="write-tool" id="nextCharBtn" aria-label="Nächstes Zeichen">›</button>
+      </div>
       <div class="write-tools">
         <button class="write-tool" id="undoBtn">rückgängig</button>
         <button class="write-tool" id="clearBtn">alles löschen</button>
@@ -829,43 +851,62 @@ function render(){
 
 const HANZI_RE = /[㐀-䶿一-鿿]/; // ideographs only; punctuation gets no cell
 
-// Strokes live here rather than on the canvas so they can be undone and
-// redrawn crisply after a DPR/resize change. undoOrder records which cell each
-// stroke went into, so "rückgängig" walks back through the whole word rather
-// than one cell at a time.
+// Strokes are stored in a fixed logical coordinate space, not in pixels, so
+// they survive resizing, rotation and DPR differences: the canvas backing
+// store is rebuilt from the element's real size and the strokes are simply
+// redrawn. undoOrder records which cell each stroke went into, so "rückgängig"
+// walks back through the whole word rather than one cell at a time.
+const LOGICAL = 300;
+
 let cells = [];
 let undoOrder = [];
+let activeCell = 0;
 
-function drawGuides(ctx, size){
+function drawGuides(ctx){
   ctx.save();
   ctx.strokeStyle = 'rgba(185,195,207,0.9)';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([4, 4]);
+  ctx.lineWidth = 1.6;
+  ctx.setLineDash([9, 9]);
   ctx.beginPath();
-  ctx.moveTo(size / 2, 0); ctx.lineTo(size / 2, size);       // vertical
-  ctx.moveTo(0, size / 2); ctx.lineTo(size, size / 2);       // horizontal
-  ctx.moveTo(0, 0); ctx.lineTo(size, size);                  // diagonals
-  ctx.moveTo(size, 0); ctx.lineTo(0, size);
+  ctx.moveTo(LOGICAL / 2, 0); ctx.lineTo(LOGICAL / 2, LOGICAL);   // vertical
+  ctx.moveTo(0, LOGICAL / 2); ctx.lineTo(LOGICAL, LOGICAL / 2);   // horizontal
+  ctx.moveTo(0, 0); ctx.lineTo(LOGICAL, LOGICAL);                 // diagonals
+  ctx.moveTo(LOGICAL, 0); ctx.lineTo(0, LOGICAL);
   ctx.stroke();
   ctx.restore();
 }
 
+// Match the backing store to the element's rendered size. Must run after
+// layout, and again whenever the element can have changed size.
+function sizeCell(cell){
+  const rect = cell.canvas.getBoundingClientRect();
+  if(!rect.width) return false;
+  const dpr = window.devicePixelRatio || 1;
+  const px = Math.round(rect.width * dpr);
+  if(cell.canvas.width !== px){
+    cell.canvas.width = px;
+    cell.canvas.height = px;
+  }
+  const scale = px / LOGICAL;
+  cell.ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  return true;
+}
+
 function redrawCell(cell){
-  const { ctx, size, strokes } = cell;
-  ctx.clearRect(0, 0, size, size);
-  drawGuides(ctx, size);
+  const { ctx, strokes } = cell;
+  ctx.clearRect(0, 0, LOGICAL, LOGICAL);
+  drawGuides(ctx);
   ctx.save();
   ctx.strokeStyle = '#211f1a';
-  ctx.lineWidth = Math.max(3, size * 0.055);
+  ctx.fillStyle = '#211f1a';
+  ctx.lineWidth = LOGICAL * 0.045;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   for(const stroke of strokes){
     if(stroke.length < 2){
       // A tap is still ink — draw it as a dot rather than dropping it.
-      const p = stroke[0];
       ctx.beginPath();
-      ctx.arc(p.x, p.y, ctx.lineWidth / 2, 0, Math.PI * 2);
-      ctx.fillStyle = '#211f1a';
+      ctx.arc(stroke[0].x, stroke[0].y, ctx.lineWidth / 2, 0, Math.PI * 2);
       ctx.fill();
       continue;
     }
@@ -889,21 +930,17 @@ function updateWriteTools(){
 function makeCell(){
   const canvas = document.createElement('canvas');
   canvas.className = 'write-cell';
-  const size = 74;
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = size * dpr;
-  canvas.height = size * dpr;
-  canvas.style.width = size + 'px';
-  canvas.style.height = size + 'px';
   const ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr);
 
-  const cell = { canvas, ctx, size, strokes: [] };
+  const cell = { canvas, ctx, strokes: [] };
   let drawing = null;
 
   const pos = (e) => {
     const r = canvas.getBoundingClientRect();
-    return { x: (e.clientX - r.left) * (size / r.width), y: (e.clientY - r.top) * (size / r.height) };
+    return {
+      x: ((e.clientX - r.left) / r.width) * LOGICAL,
+      y: ((e.clientY - r.top) / r.height) * LOGICAL,
+    };
   };
 
   canvas.addEventListener('pointerdown', (e) => {
@@ -928,8 +965,22 @@ function makeCell(){
   canvas.addEventListener('pointercancel', end);
   canvas.addEventListener('pointerleave', end);
 
-  redrawCell(cell);
   return cell;
+}
+
+function showCell(i){
+  if(!cells.length) return;
+  activeCell = Math.max(0, Math.min(i, cells.length - 1));
+  cells.forEach((c, n) => c.canvas.classList.toggle('is-hidden', n !== activeCell));
+  const pos = document.getElementById('writePos');
+  if(pos) pos.innerHTML = 'Zeichen <b>' + (activeCell + 1) + '</b> / ' + cells.length;
+  const prev = document.getElementById('prevCharBtn');
+  const next = document.getElementById('nextCharBtn');
+  if(prev) prev.disabled = activeCell === 0;
+  if(next) next.disabled = activeCell === cells.length - 1;
+  // Sizing has to happen while visible: a display:none canvas measures 0.
+  const cell = cells[activeCell];
+  if(sizeCell(cell)) redrawCell(cell);
 }
 
 function buildWriteGrid(item){
@@ -938,26 +989,54 @@ function buildWriteGrid(item){
   grid.innerHTML = '';
   cells = [];
   undoOrder = [];
+  activeCell = 0;
+
   const chars = Array.from(item.hanzi).filter(c => HANZI_RE.test(c));
   for(let i = 0; i < chars.length; i++){
     const cell = makeCell();
     cells.push(cell);
     grid.appendChild(cell.canvas);
   }
+
+  const pager = document.getElementById('writePager');
+  // A single-character word needs no navigation.
+  if(pager) pager.classList.toggle('is-hidden', cells.length < 2);
+  const prev = document.getElementById('prevCharBtn');
+  const next = document.getElementById('nextCharBtn');
+  if(prev) prev.onclick = () => showCell(activeCell - 1);
+  if(next) next.onclick = () => showCell(activeCell + 1);
+
   document.getElementById('undoBtn').onclick = () => {
     const cell = undoOrder.pop();
     if(!cell) return;
     cell.strokes.pop();
-    redrawCell(cell);
+    // Jump to wherever that stroke was, so undo is never invisible.
+    const idx = cells.indexOf(cell);
+    if(idx !== -1 && idx !== activeCell) showCell(idx);
+    else redrawCell(cell);
     updateWriteTools();
   };
   document.getElementById('clearBtn').onclick = () => {
-    for(const c of cells){ c.strokes = []; redrawCell(c); }
+    for(const c of cells) c.strokes = [];
     undoOrder = [];
+    showCell(0);
+    for(const c of cells) if(sizeCell(c)) redrawCell(c);
     updateWriteTools();
   };
+
+  showCell(0);
+  // Fonts and layout can settle a frame later; re-measure once.
+  requestAnimationFrame(() => showCell(activeCell));
   updateWriteTools();
 }
+
+// Rotation and window resizes change the cell's pixel size; strokes are in
+// logical units, so a re-measure plus redraw is all that's needed.
+window.addEventListener('resize', () => {
+  if(!cells.length) return;
+  const cell = cells[activeCell];
+  if(sizeCell(cell)) redrawCell(cell);
+});
 
 function showAnswer(item){
   const box = document.getElementById('answerBox');
