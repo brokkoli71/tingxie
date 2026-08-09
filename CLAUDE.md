@@ -137,10 +137,12 @@ new colors/components ad hoc:
 - **Type:** "Noto Serif SC" for Hanzi display, "Source Serif 4" for German
   body text, "JetBrains Mono" for Pinyin, labels, and stats (all via Google
   Fonts CDN)
-- **Signature element:** the dictation `<textarea>` is styled with a
-  repeating horizontal-rule background to look like ruled practice paper
-  (`.grid-paper`), and the level/type tag on each card is a small
-  rotated seal-stamp-style badge. Keep this motif for any new input/tag UI.
+- **Signature element:** answers are handwritten on 米字格 cells (`.write-cell`,
+  one canvas per character, dashed cross-and-diagonal guides) — squared
+  practice paper, not a text field. The level/type tag on each card is a small
+  rotated seal-stamp-style badge. Keep these motifs for any new input/tag UI.
+  The old ruled-paper `textarea.grid-paper` rule is unused but kept as a
+  reference for the ruled-line treatment.
 
 ## Conventions
 
@@ -183,8 +185,14 @@ Not addressed, deliberately: no rate limiting (single user behind Access), and
 
 ## Open TODOs (roughly priority order)
 
-1. Optional: Edge-TTS relay endpoint for better audio quality, as `/api/tts`
-   in `server.js`
+1. Exercise modes beyond dictation. Agreed shape: three *named* types, not an
+   input×output matrix (12 combos, most degenerate) — Hören→Hanzi (today),
+   Deutsch→Hanzi (production), Hanzi→Deutsch (reading); audio available in
+   all. Sessions mix types rather than making you pick one. Progress keys
+   become per (item, mode), because recognition and production decay at
+   different rates — migrate existing bare `w01` keys to the dictation mode.
+   Note this triples the card count (98 → ~294), which makes item 2 a
+   prerequisite rather than an option.
 2. Session shaping: currently introduces *all* due/new items uncapped;
    consider an Anki-style daily new-card limit
 3. Vocab expansion beyond the initial 98 items

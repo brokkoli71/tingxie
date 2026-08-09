@@ -187,6 +187,41 @@
     text-align:right;
   }
 
+  /* Handwriting area: one 米字格 cell per character, like squared practice
+     paper. Answers are drawn, not typed — writing is the point of the app. */
+  .write-grid{
+    display:flex;
+    flex-wrap:wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .write-cell{
+    width: 74px; height: 74px;
+    border: 1.5px solid var(--seal);
+    border-radius: 4px;
+    background: #fffdf8;
+    display:block;
+    cursor: crosshair;
+    /* Without this the browser scrolls the page instead of drawing. */
+    touch-action: none;
+  }
+  .write-tools{
+    display:flex;
+    gap: 8px;
+    align-items:center;
+  }
+  .write-tool{
+    font-family:"JetBrains Mono", monospace;
+    font-size: 12px;
+    background: transparent;
+    border: 1.5px solid var(--ink-soft);
+    color: var(--ink-soft);
+    border-radius: 20px;
+    padding: 7px 13px;
+    cursor: pointer;
+  }
+  .write-tool:disabled{ opacity: 0.35; cursor: default; }
+
   .grid-input-wrap{ margin-bottom: 18px; }
   .grid-label{
     font-family:"JetBrains Mono", monospace;
@@ -758,14 +793,20 @@ function render(){
     </div>
 
     <div class="grid-input-wrap">
-      <div class="grid-label">Was hast du gehört? (Pinyin oder Hanzi)</div>
-      <textarea class="grid-paper" id="answerInput" placeholder="hier schreiben …"></textarea>
+      <div class="grid-label">Was hast du gehört? Schreib die Zeichen.</div>
+      <div class="write-grid" id="writeGrid"></div>
+      <div class="write-tools">
+        <button class="write-tool" id="undoBtn">rückgängig</button>
+        <button class="write-tool" id="clearBtn">alles löschen</button>
+      </div>
     </div>
 
     <button class="reveal-btn" id="revealBtn">Antwort zeigen</button>
 
     <div id="answerBox"></div>
   `;
+
+  buildWriteGrid(item);
 
   document.getElementById('playBtn').onclick = () => speak(item.hanzi);
   document.getElementById('rateBtn').onclick = (e) => {
@@ -779,6 +820,143 @@ function render(){
   };
 
   if(revealed) showAnswer(item);
+}
+
+// ---- Handwriting input -----------------------------------------------------
+// One canvas per character of the answer, drawn on a 米字格 guide. Nothing is
+// recognised or persisted: the drawing is scratch paper, and grading stays
+// self-assessed after the reveal, same as before.
+
+const HANZI_RE = /[㐀-䶿一-鿿]/; // ideographs only; punctuation gets no cell
+
+// Strokes live here rather than on the canvas so they can be undone and
+// redrawn crisply after a DPR/resize change. undoOrder records which cell each
+// stroke went into, so "rückgängig" walks back through the whole word rather
+// than one cell at a time.
+let cells = [];
+let undoOrder = [];
+
+function drawGuides(ctx, size){
+  ctx.save();
+  ctx.strokeStyle = 'rgba(185,195,207,0.9)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(size / 2, 0); ctx.lineTo(size / 2, size);       // vertical
+  ctx.moveTo(0, size / 2); ctx.lineTo(size, size / 2);       // horizontal
+  ctx.moveTo(0, 0); ctx.lineTo(size, size);                  // diagonals
+  ctx.moveTo(size, 0); ctx.lineTo(0, size);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function redrawCell(cell){
+  const { ctx, size, strokes } = cell;
+  ctx.clearRect(0, 0, size, size);
+  drawGuides(ctx, size);
+  ctx.save();
+  ctx.strokeStyle = '#211f1a';
+  ctx.lineWidth = Math.max(3, size * 0.055);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for(const stroke of strokes){
+    if(stroke.length < 2){
+      // A tap is still ink — draw it as a dot rather than dropping it.
+      const p = stroke[0];
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, ctx.lineWidth / 2, 0, Math.PI * 2);
+      ctx.fillStyle = '#211f1a';
+      ctx.fill();
+      continue;
+    }
+    ctx.beginPath();
+    ctx.moveTo(stroke[0].x, stroke[0].y);
+    for(let i = 1; i < stroke.length; i++) ctx.lineTo(stroke[i].x, stroke[i].y);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function updateWriteTools(){
+  const undoBtn = document.getElementById('undoBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  if(!undoBtn) return;
+  const empty = undoOrder.length === 0;
+  undoBtn.disabled = empty;
+  clearBtn.disabled = empty;
+}
+
+function makeCell(){
+  const canvas = document.createElement('canvas');
+  canvas.className = 'write-cell';
+  const size = 74;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = size * dpr;
+  canvas.height = size * dpr;
+  canvas.style.width = size + 'px';
+  canvas.style.height = size + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const cell = { canvas, ctx, size, strokes: [] };
+  let drawing = null;
+
+  const pos = (e) => {
+    const r = canvas.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * (size / r.width), y: (e.clientY - r.top) * (size / r.height) };
+  };
+
+  canvas.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    // Capture keeps a stroke tracking the finger if it slides outside the
+    // cell. Not fatal if the browser refuses, so don't let it abort the stroke.
+    try{ canvas.setPointerCapture(e.pointerId); }catch(err){}
+    drawing = [pos(e)];
+    cell.strokes.push(drawing);
+    undoOrder.push(cell);
+    redrawCell(cell);
+    updateWriteTools();
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if(!drawing) return;
+    e.preventDefault();
+    drawing.push(pos(e));
+    redrawCell(cell);
+  });
+  const end = () => { drawing = null; };
+  canvas.addEventListener('pointerup', end);
+  canvas.addEventListener('pointercancel', end);
+  canvas.addEventListener('pointerleave', end);
+
+  redrawCell(cell);
+  return cell;
+}
+
+function buildWriteGrid(item){
+  const grid = document.getElementById('writeGrid');
+  if(!grid) return;
+  grid.innerHTML = '';
+  cells = [];
+  undoOrder = [];
+  const chars = Array.from(item.hanzi).filter(c => HANZI_RE.test(c));
+  for(let i = 0; i < chars.length; i++){
+    const cell = makeCell();
+    cells.push(cell);
+    grid.appendChild(cell.canvas);
+  }
+  document.getElementById('undoBtn').onclick = () => {
+    const cell = undoOrder.pop();
+    if(!cell) return;
+    cell.strokes.pop();
+    redrawCell(cell);
+    updateWriteTools();
+  };
+  document.getElementById('clearBtn').onclick = () => {
+    for(const c of cells){ c.strokes = []; redrawCell(c); }
+    undoOrder = [];
+    updateWriteTools();
+  };
+  updateWriteTools();
 }
 
 function showAnswer(item){
