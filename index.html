@@ -324,6 +324,24 @@
     h1{ font-size: 32px; }
     .card{ padding: 22px 16px 18px; }
   }
+
+  /* Phone layout: one-handed reach.
+     On a phone the top of the card is where the thumb can't go, so the play
+     controls move below the writing area, next to the reveal button — the
+     cards get replayed constantly, so that button matters more than reading
+     order. Ordering is done in CSS rather than in render(), so the desktop
+     layout (listen, then write, top to bottom) is untouched.
+     .tag is absolutely positioned and unaffected. */
+  @media (max-width: 640px){
+    .card{ display:flex; flex-direction:column; }
+    .grid-input-wrap{ order:1; margin-bottom: 14px; }
+    .controls-row{ order:2; margin: 0 0 16px; }
+    .reveal-btn{ order:3; }
+    #answerBox{ order:4; }
+    /* Bigger tap target now that it's the primary thumb control. */
+    .play-btn{ width: 68px; height: 68px; }
+    .play-btn svg{ width: 27px; height: 27px; }
+  }
 </style>
 </head>
 <body>
