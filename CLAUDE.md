@@ -126,11 +126,25 @@ Three named types (`MODES` in `index.html`), *not* an input×output matrix —
 the matrix yields 12 mostly-degenerate combinations and turns the app into a
 settings screen. User vocabulary for the axes is pinyin / deutsch / hanzi.
 
-| id | chip | prompt | answer |
-|----|------|--------|--------|
-| `listen` | Hören | audio only | write the hanzi |
-| `de2hz` | Schreiben | German meaning | write the hanzi |
-| `hz2de` | Lesen | hanzi | German meaning, self-assessed (no writing) |
+| id | chip | prompt | answer (word) | answer (sentence) |
+|----|------|--------|---------------|-------------------|
+| `listen` | Hören | audio only | draw the hanzi | **type pinyin**, no tone marks |
+| `de2hz` | Schreiben | German meaning | draw the hanzi | **not offered** |
+| `hz2de` | Lesen | hanzi | German meaning, self-assessed — no input | same |
+
+Two rules in code, `modeApplies()` and `answerFormat()`, and both are
+pedagogical rather than technical:
+
+- **Sentences are answered in pinyin, not drawn.** What a sentence tests is
+  hearing and segmenting; drawing ten characters one at a time costs far more
+  than it teaches, and the word cards already drill those characters. Words
+  *are* drawn, because producing the character is the skill being tested.
+- **`de2hz` is not offered for sentences** — writing a whole sentence in hanzi
+  from a German prompt is a translation exercise well beyond HSK2/3.
+
+Deck size is therefore 78×3 + 20×2 = **274**, not 294. Anything that walks
+(item × mode) must filter through `modeApplies()` — queue building, stats, and
+the "keep practising" path all do.
 
 Audio is available in *every* mode by design — in `de2hz` it's a pronunciation
 hint, and whether to use it is the learner's call. Sessions **mix** modes
