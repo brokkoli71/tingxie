@@ -87,9 +87,15 @@ just add a hostname to it (step 2) instead of creating a new tunnel.
    `truenas`, then install the connector with the command it shows.)
 2. **Public Hostname** tab → *Add a public hostname*:
    - Subdomain `tingxie`, Domain `hannesspitz.de`
-   - Service: **HTTP** → URL `localhost:8477` (the host port from `TINGXIE_PORT`)
-     (if `cloudflared` itself runs in Docker on the same bridge network, use
-     `tingxie:8080` and drop the `127.0.0.1` port binding from compose)
+   - Service: **HTTP** → URL `http://<host-LAN-IP>:8477`, e.g.
+     `http://192.168.10.34:8477` — the same form the other routes on this
+     tunnel use. `cloudflared` here does not reach origins over loopback, so
+     `127.0.0.1:8477` would 502.
+
+   In the current dashboard this lives under the tunnel's **Published
+   application routes** tab; the old *Configure → Public Hostname* flow is
+   gone. Don't use *CIDR routes* or *Hostname routes* — those are private
+   network access via WARP, not public web access.
 3. Save. The DNS CNAME is created automatically — no manual DNS record.
 4. Visit `https://tingxie.hannesspitz.de`. Grade one card, reload, confirm it
    stuck; then open it on the phone and confirm the same box counts show up.
