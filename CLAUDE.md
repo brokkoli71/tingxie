@@ -167,6 +167,12 @@ Only the things that are load-bearing and easy to break by accident:
   check enforces it server-side); it's currently used as array indices, not
   rendered as text.
 
+Cloudflare Access (One-time PIN, single allowed email) fronts the public
+hostname — see DEPLOY.md. It does *not* cover the LAN: the container binds all
+interfaces so `cloudflared` can reach it, so anyone on the home network can
+read and write progress directly. Accepted for now; revisit if the app ever
+holds anything beyond dictation progress.
+
 Not addressed, deliberately: no rate limiting (single user behind Access), and
 `TINGXIE_TOKEN` lives in `localStorage` when used.
 

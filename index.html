@@ -338,14 +338,14 @@
     <div class="boxes" id="boxes"></div>
   </header>
 
+  <!-- Hidden by default; updateVoiceBanner() fills in the actual reason. -->
   <div class="voice-warning" id="voiceWarning">
-    Es wurde keine chinesische Sprachausgabe gefunden. Unter Linux fehlt Chromium/Firefox oft eine zh-Stimme.
-    Versuch es in Google Chrome (mit Internetverbindung) oder installier ein chinesisches Sprachpaket für deinen Screenreader/TTS-Dienst.
+    Sprachausgabe eingeschränkt.
   </div>
 
   <div class="card" id="card"></div>
 
-  <footer>Fortschritt wird nur lokal für dich gespeichert · Karten stammen aus HSK2/3 (ungefähre Einstufung)</footer>
+  <footer>Fortschritt wird auf deinem Server gespeichert und über alle Geräte synchronisiert · Karten stammen aus HSK2/3 (ungefähre Einstufung)</footer>
 </div>
 
 <script>
@@ -632,8 +632,8 @@ function speakOnline(text, r){
     onlineAudio.playbackRate = r || 1;
     onlineAudio.play().catch(() => {
       document.getElementById('voiceWarning').innerHTML =
-        'Weder lokale noch Online-Sprachausgabe verfügbar (evtl. kein Internet oder blockiert). ' +
-        'Prüf deine Verbindung oder installier eine lokale zh-Stimme (speech-dispatcher + espeak-ng).';
+        'Keine Sprachausgabe verfügbar (evtl. kein Internet oder blockiert). ' +
+        'Prüf deine Verbindung und lade die Seite neu.';
       document.getElementById('voiceWarning').classList.add('show');
     });
   }catch(e){

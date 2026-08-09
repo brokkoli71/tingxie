@@ -100,18 +100,55 @@ just add a hostname to it (step 2) instead of creating a new tunnel.
 4. Visit `https://tingxie.hannesspitz.de`. Grade one card, reload, confirm it
    stuck; then open it on the phone and confirm the same box counts show up.
 
-### Locking it down
+### Access control (in use: Cloudflare Access, One-time PIN)
 
-The API has no auth by default. Pick one:
+The app itself has no auth. Cloudflare Access gates the hostname at
+Cloudflare's edge, so unauthenticated requests never reach TrueNAS at all.
+Login is email + a 6-digit code — no password, no identity provider to run.
 
-- **Cloudflare Access** (recommended, matches the Nextcloud setup): Zero Trust →
-  Access → Applications → *Add* → Self-hosted → `tingxie.hannesspitz.de` →
-  policy `Emails == h.spitz@outlook.de`. Nothing to change in the app.
-- **Shared secret**, if you'd rather skip Access: set `TINGXIE_TOKEN=<random>` in
-  a `.env` next to `docker-compose.yml`, then on each device once, in the browser
-  console: `localStorage.setItem('tingxie-token','<random>')`. Note this is weak
-  — the token sits in a static page's storage; it stops drive-by scanners, not a
-  determined attacker.
+Setup, as actually performed:
+
+1. **Zero Trust → Identity provider integrations → Add new → One-time PIN.**
+   Do this *first*. One-time PIN is built in but is not enabled by default on
+   a fresh account, and creating the application before it exists fails at
+   login with "There are no login methods available for this account". The page
+   has been renamed more than once (previously *Settings → Authentication →
+   Login methods*); `Ctrl+K` and search `identity provider` if it moved again.
+   Not to be confused with *Access settings*, which holds global session and
+   MFA options — MFA is a second factor on top of a login method, not one
+   itself, and should stay off here.
+2. **Access controls → Applications → Add an application → Self-hosted.**
+   Name `TingXie`, public hostname `tingxie.hannesspitz.de`, empty path.
+3. **Session duration: 1 month.** This is how often a PIN is re-requested; the
+   24h default gets tiresome on a phone.
+4. Policy: name `Nur ich`, action **Allow**, rule `Emails` is
+   `h.spitz@outlook.de`.
+5. Confirm the application's login methods include One-time PIN.
+
+Verify in a private window — the email prompt should appear instead of the app.
+
+Leave *Cloudflare One Client authentication* as it is; it authenticates WARP
+device sessions and is unrelated (it is not an identity provider, so toggling
+it neither causes nor fixes the error above).
+
+**What this does not cover:** the LAN. Access only sees traffic arriving
+through Cloudflare, so `http://<host-LAN-IP>:8477` remains open to anyone on
+the home network, for both reads and writes. Closing that means either setting
+`TINGXIE_BIND=127.0.0.1` (only viable if `cloudflared` runs as a host service,
+not a container) or adding HTTP Basic Auth in `server.js`, which would apply on
+both paths.
+
+Cloudflare Access has no password-based login by design — only identity
+providers, One-time PIN, and service tokens. If a plain password is ever
+wanted, it has to be implemented at the app (Basic Auth, or a login screen
+around the existing `TINGXIE_TOKEN` header).
+
+#### Shared secret (not in use)
+
+`TINGXIE_TOKEN=<random>` in `.env` makes the API require an `X-Tingxie-Token`
+header; set it per device with
+`localStorage.setItem('tingxie-token','<random>')`. Weak — the token sits in a
+static page's storage — and redundant while Access is in place.
 
 ## Backup
 
