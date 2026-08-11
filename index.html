@@ -387,6 +387,60 @@
     margin: 0 0 20px;
   }
 
+  /* Beispielsatz — abgesetzt wie eine Randnotiz im Übungsheft: eigener
+     Papierton, roter Randstrich links, kein zweiter Kartenrahmen. */
+  .example{
+    margin: 0 0 20px;
+    padding: 10px 12px 11px;
+    background: rgba(179,53,42,0.045);
+    border-left: 3px solid var(--seal);
+    border-radius: 0 6px 6px 0;
+  }
+  .example-head{
+    display:flex;
+    align-items:center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .example-label{
+    font-family:"JetBrains Mono", monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--seal-dark);
+  }
+  .example-play{
+    flex: none;
+    width: 28px; height: 28px;
+    display:grid; place-items:center;
+    border: 1.5px solid var(--seal);
+    border-radius: 50%;
+    background: transparent;
+    color: var(--seal);
+    cursor: pointer;
+    padding: 0;
+  }
+  .example-play:active{ transform: scale(0.92); }
+  .example-play svg{ width: 14px; height: 14px; }
+  .example-hz{
+    font-family:"Noto Serif SC", serif;
+    font-size: 20px;
+    line-height: 1.5;
+    margin: 0 0 3px;
+  }
+  .example-py{
+    font-family:"JetBrains Mono", monospace;
+    font-size: 13px;
+    color: var(--seal-dark);
+    margin: 0 0 3px;
+  }
+  .example-de{
+    font-size: 14.5px;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+
   .grade-row{ display:flex; gap: 8px; }
   .grade-btn{
     flex:1;
@@ -503,7 +557,7 @@
 
   <div class="card" id="card"></div>
 
-  <footer class="page-footer">Fortschritt wird auf deinem Server gespeichert und über alle Geräte synchronisiert · Karten stammen aus HSK2/3 (ungefähre Einstufung)</footer>
+  <footer class="page-footer">Fortschritt wird auf deinem Server gespeichert und über alle Geräte synchronisiert · Wörter aus HSK2/3, Sätze auf HSK1-Niveau (ungefähre Einstufung)</footer>
 </div>
 
 <script>
@@ -590,28 +644,115 @@ const ITEMS = [
   {id:'w77',hanzi:'决定',pinyin:'juédìng',meaning:'entscheiden',level:3,type:'word'},
   {id:'w78',hanzi:'了解',pinyin:'liǎojiě',meaning:'verstehen, erfahren',level:3,type:'word'},
 
-  // Sätze — gemischt HSK2/3
-  {id:'s01',hanzi:'我每天早上七点起床。',pinyin:'Wǒ měitiān zǎoshang qī diǎn qǐchuáng.',meaning:'Ich stehe jeden Morgen um 7 Uhr auf.',level:2,type:'sentence'},
-  {id:'s02',hanzi:'虽然下雨,但是我们还是要出去。',pinyin:'Suīrán xiàyǔ, dànshì wǒmen háishi yào chūqù.',meaning:'Obwohl es regnet, wollen wir trotzdem raus.',level:2,type:'sentence'},
-  {id:'s03',hanzi:'因为今天很忙,所以我没有时间吃饭。',pinyin:'Yīnwèi jīntiān hěn máng, suǒyǐ wǒ méiyǒu shíjiān chīfàn.',meaning:'Weil ich heute sehr beschäftigt bin, habe ich keine Zeit zu essen.',level:2,type:'sentence'},
-  {id:'s04',hanzi:'你觉得这个电影怎么样?',pinyin:'Nǐ juéde zhège diànyǐng zěnmeyàng?',meaning:'Was hältst du von diesem Film?',level:2,type:'sentence'},
-  {id:'s05',hanzi:'他比我高一点儿。',pinyin:'Tā bǐ wǒ gāo yìdiǎnr.',meaning:'Er ist etwas größer als ich.',level:2,type:'sentence'},
-  {id:'s06',hanzi:'我打算明年去中国留学。',pinyin:'Wǒ dǎsuàn míngnián qù Zhōngguó liúxué.',meaning:'Ich habe vor, nächstes Jahr in China zu studieren.',level:3,type:'sentence'},
-  {id:'s07',hanzi:'请把窗户关上。',pinyin:'Qǐng bǎ chuānghu guānshàng.',meaning:'Bitte mach das Fenster zu.',level:3,type:'sentence'},
-  {id:'s08',hanzi:'这件衣服太贵了,能不能便宜一点?',pinyin:'Zhè jiàn yīfu tài guì le, néng bu néng piányi yìdiǎn?',meaning:'Dieses Kleidungsstück ist zu teuer, geht es etwas billiger?',level:2,type:'sentence'},
-  {id:'s09',hanzi:'我已经在这儿住了三年了。',pinyin:'Wǒ yǐjīng zài zhèr zhùle sān nián le.',meaning:'Ich wohne schon seit drei Jahren hier.',level:2,type:'sentence'},
-  {id:'s10',hanzi:'除了你以外,大家都来了。',pinyin:'Chúle nǐ yǐwài, dàjiā dōu lái le.',meaning:'Außer dir sind alle gekommen.',level:3,type:'sentence'},
-  {id:'s11',hanzi:'你越努力,就越容易成功。',pinyin:'Nǐ yuè nǔlì, jiù yuè róngyì chénggōng.',meaning:'Je mehr du dich anstrengst, desto leichter hast du Erfolg.',level:3,type:'sentence'},
-  {id:'s12',hanzi:'我一边听音乐一边写作业。',pinyin:'Wǒ yìbiān tīng yīnyuè yìbiān xiě zuòyè.',meaning:'Ich höre Musik, während ich Hausaufgaben mache.',level:2,type:'sentence'},
-  {id:'s13',hanzi:'别担心,一切都会好的。',pinyin:'Bié dānxīn, yíqiè dōu huì hǎo de.',meaning:'Mach dir keine Sorgen, alles wird gut.',level:3,type:'sentence'},
-  {id:'s14',hanzi:'他说的话我一点儿也听不懂。',pinyin:'Tā shuō de huà wǒ yìdiǎnr yě tīng bu dǒng.',meaning:'Was er sagt, verstehe ich überhaupt nicht.',level:3,type:'sentence'},
-  {id:'s15',hanzi:'你能不能帮我一个忙?',pinyin:'Nǐ néng bu néng bāng wǒ yí gè máng?',meaning:'Kannst du mir einen Gefallen tun?',level:3,type:'sentence'},
-  {id:'s16',hanzi:'这个问题比我想的复杂多了。',pinyin:'Zhège wèntí bǐ wǒ xiǎng de fùzá duō le.',meaning:'Dieses Problem ist viel komplizierter, als ich dachte.',level:3,type:'sentence'},
-  {id:'s17',hanzi:'我们下周三见面,怎么样?',pinyin:'Wǒmen xià zhōu sān jiànmiàn, zěnmeyàng?',meaning:'Wir treffen uns nächsten Mittwoch, wie klingt das?',level:3,type:'sentence'},
-  {id:'s18',hanzi:'中文越学越有意思。',pinyin:'Zhōngwén yuè xué yuè yǒuyìsi.',meaning:'Chinesisch wird umso interessanter, je mehr man lernt.',level:3,type:'sentence'},
-  {id:'s19',hanzi:'我觉得坐地铁比开车方便。',pinyin:'Wǒ juéde zuò dìtiě bǐ kāichē fāngbiàn.',meaning:'Ich finde, U-Bahn fahren ist praktischer als Auto fahren.',level:3,type:'sentence'},
-  {id:'s20',hanzi:'如果你有空,我们一起去喝咖啡吧。',pinyin:'Rúguǒ nǐ yǒu kòng, wǒmen yìqǐ qù hē kāfēi ba.',meaning:'Wenn du Zeit hast, lass uns zusammen einen Kaffee trinken gehen.',level:2,type:'sentence'},
+  // Sätze — HSK1-Niveau. Kurz und mit HSK1-Grammatik: die Satzkarten sollen
+  // Hörverstehen trainieren, nicht Satzbau. Alles, was ein Wort erklären soll,
+  // steht stattdessen in EXAMPLES.
+  {id:'s01',hanzi:'我叫王小明。',pinyin:'Wǒ jiào Wáng Xiǎomíng.',meaning:'Ich heiße Wang Xiaoming.',level:1,type:'sentence'},
+  {id:'s02',hanzi:'你是哪国人?',pinyin:'Nǐ shì nǎ guó rén?',meaning:'Aus welchem Land kommst du?',level:1,type:'sentence'},
+  {id:'s03',hanzi:'今天天气很好。',pinyin:'Jīntiān tiānqì hěn hǎo.',meaning:'Heute ist das Wetter schön.',level:1,type:'sentence'},
+  {id:'s04',hanzi:'我喜欢喝茶。',pinyin:'Wǒ xǐhuan hē chá.',meaning:'Ich trinke gern Tee.',level:1,type:'sentence'},
+  {id:'s05',hanzi:'他是我的朋友。',pinyin:'Tā shì wǒ de péngyou.',meaning:'Er ist mein Freund.',level:1,type:'sentence'},
+  {id:'s06',hanzi:'我家有四口人。',pinyin:'Wǒ jiā yǒu sì kǒu rén.',meaning:'Wir sind vier Personen in der Familie.',level:1,type:'sentence'},
+  {id:'s07',hanzi:'现在几点?',pinyin:'Xiànzài jǐ diǎn?',meaning:'Wie spät ist es?',level:1,type:'sentence'},
+  {id:'s08',hanzi:'我在学校学习中文。',pinyin:'Wǒ zài xuéxiào xuéxí Zhōngwén.',meaning:'Ich lerne in der Schule Chinesisch.',level:1,type:'sentence'},
+  {id:'s09',hanzi:'这个多少钱?',pinyin:'Zhège duōshao qián?',meaning:'Was kostet das?',level:1,type:'sentence'},
+  {id:'s10',hanzi:'明天我去商店买东西。',pinyin:'Míngtiān wǒ qù shāngdiàn mǎi dōngxi.',meaning:'Morgen gehe ich im Laden einkaufen.',level:1,type:'sentence'},
+  {id:'s11',hanzi:'我不认识他。',pinyin:'Wǒ bú rènshi tā.',meaning:'Ich kenne ihn nicht.',level:1,type:'sentence'},
+  {id:'s12',hanzi:'我妈妈在家做饭。',pinyin:'Wǒ māma zài jiā zuòfàn.',meaning:'Meine Mutter kocht zu Hause.',level:1,type:'sentence'},
+  {id:'s13',hanzi:'你会说中文吗?',pinyin:'Nǐ huì shuō Zhōngwén ma?',meaning:'Sprichst du Chinesisch?',level:1,type:'sentence'},
+  {id:'s14',hanzi:'我想喝一杯水。',pinyin:'Wǒ xiǎng hē yì bēi shuǐ.',meaning:'Ich möchte ein Glas Wasser trinken.',level:1,type:'sentence'},
+  {id:'s15',hanzi:'我们下午去看电影。',pinyin:'Wǒmen xiàwǔ qù kàn diànyǐng.',meaning:'Wir gehen nachmittags ins Kino.',level:1,type:'sentence'},
+  {id:'s16',hanzi:'那本书在桌子上。',pinyin:'Nà běn shū zài zhuōzi shàng.',meaning:'Das Buch liegt auf dem Tisch.',level:1,type:'sentence'},
+  {id:'s17',hanzi:'他今年二十岁。',pinyin:'Tā jīnnián èrshí suì.',meaning:'Er ist dieses Jahr zwanzig geworden.',level:1,type:'sentence'},
+  {id:'s18',hanzi:'我昨天没去学校。',pinyin:'Wǒ zuótiān méi qù xuéxiào.',meaning:'Ich bin gestern nicht zur Schule gegangen.',level:1,type:'sentence'},
+  {id:'s19',hanzi:'你吃饭了吗?',pinyin:'Nǐ chīfàn le ma?',meaning:'Hast du schon gegessen?',level:1,type:'sentence'},
+  {id:'s20',hanzi:'请你说得慢一点。',pinyin:'Qǐng nǐ shuō de màn yìdiǎn.',meaning:'Sprich bitte etwas langsamer.',level:1,type:'sentence'},
 ];
+
+// Beispielsätze: ein Satz pro Wort, gebaut fast nur aus HSK1-Vokabular, damit
+// das neue Wort das einzig Unbekannte darin ist. Sie sind bewusst *keine*
+// eigenen Karten — sie erscheinen beim Aufdecken einer Wortkarte und zeigen
+// die Verwendung, statt den Stapel zu verdoppeln.
+const EXAMPLES = {
+  w01:{hanzi:'大家好,我叫小明。',pinyin:'Dàjiā hǎo, wǒ jiào Xiǎomíng.',meaning:'Hallo zusammen, ich heiße Xiaoming.'},
+  w02:{hanzi:'你为什么不来?',pinyin:'Nǐ wèishénme bù lái?',meaning:'Warum kommst du nicht?'},
+  w03:{hanzi:'这个菜非常好吃。',pinyin:'Zhège cài fēicháng hǎochī.',meaning:'Dieses Gericht ist ausgesprochen lecker.'},
+  w04:{hanzi:'我已经吃饭了。',pinyin:'Wǒ yǐjīng chīfàn le.',meaning:'Ich habe schon gegessen.'},
+  w05:{hanzi:'我们一起去吧。',pinyin:'Wǒmen yìqǐ qù ba.',meaning:'Lass uns zusammen gehen.'},
+  w06:{hanzi:'他明天去机场。',pinyin:'Tā míngtiān qù jīchǎng.',meaning:'Er fährt morgen zum Flughafen.'},
+  w07:{hanzi:'老师在教室里。',pinyin:'Lǎoshī zài jiàoshì lǐ.',meaning:'Die Lehrerin ist im Klassenzimmer.'},
+  w08:{hanzi:'我的房间很小。',pinyin:'Wǒ de fángjiān hěn xiǎo.',meaning:'Mein Zimmer ist klein.'},
+  w09:{hanzi:'商店在左边。',pinyin:'Shāngdiàn zài zuǒbiān.',meaning:'Der Laden ist links.'},
+  w10:{hanzi:'我家在右边。',pinyin:'Wǒ jiā zài yòubiān.',meaning:'Mein Zuhause ist rechts.'},
+  w11:{hanzi:'他坐在我旁边。',pinyin:'Tā zuò zài wǒ pángbiān.',meaning:'Er sitzt neben mir.'},
+  w12:{hanzi:'我早上喝茶。',pinyin:'Wǒ zǎoshang hē chá.',meaning:'Morgens trinke ich Tee.'},
+  w13:{hanzi:'晚上我看电视。',pinyin:'Wǎnshang wǒ kàn diànshì.',meaning:'Abends sehe ich fern.'},
+  w14:{hanzi:'我学了两个小时。',pinyin:'Wǒ xuéle liǎng gè xiǎoshí.',meaning:'Ich habe zwei Stunden gelernt.'},
+  w15:{hanzi:'你今天有时间吗?',pinyin:'Nǐ jīntiān yǒu shíjiān ma?',meaning:'Hast du heute Zeit?'},
+  w16:{hanzi:'去年我在北京。',pinyin:'Qùnián wǒ zài Běijīng.',meaning:'Letztes Jahr war ich in Peking.'},
+  w17:{hanzi:'今天是我的生日。',pinyin:'Jīntiān shì wǒ de shēngrì.',meaning:'Heute ist mein Geburtstag.'},
+  w18:{hanzi:'我哥哥很高。',pinyin:'Wǒ gēge hěn gāo.',meaning:'Mein großer Bruder ist groß.'},
+  w19:{hanzi:'我姐姐是老师。',pinyin:'Wǒ jiějie shì lǎoshī.',meaning:'Meine große Schwester ist Lehrerin.'},
+  w20:{hanzi:'那个孩子很小。',pinyin:'Nàge háizi hěn xiǎo.',meaning:'Das Kind da ist noch klein.'},
+  w21:{hanzi:'服务员,我要一杯水。',pinyin:'Fúwùyuán, wǒ yào yì bēi shuǐ.',meaning:'Bedienung, ich möchte ein Glas Wasser.'},
+  w22:{hanzi:'我喜欢吃西瓜。',pinyin:'Wǒ xǐhuan chī xīguā.',meaning:'Ich esse gern Wassermelone.'},
+  w23:{hanzi:'他每天喝咖啡。',pinyin:'Tā měitiān hē kāfēi.',meaning:'Er trinkt jeden Tag Kaffee.'},
+  w24:{hanzi:'我的手机在桌子上。',pinyin:'Wǒ de shǒujī zài zhuōzi shàng.',meaning:'Mein Handy liegt auf dem Tisch.'},
+  w25:{hanzi:'我妈妈身体很好。',pinyin:'Wǒ māma shēntǐ hěn hǎo.',meaning:'Meine Mutter ist gesund.'},
+  w26:{hanzi:'我坐公共汽车去学校。',pinyin:'Wǒ zuò gōnggòngqìchē qù xuéxiào.',meaning:'Ich fahre mit dem Bus zur Schule.'},
+  w27:{hanzi:'老师,我有一个问题。',pinyin:'Lǎoshī, wǒ yǒu yí gè wèntí.',meaning:'Lehrer, ich habe eine Frage.'},
+  w28:{hanzi:'明天有考试。',pinyin:'Míngtiān yǒu kǎoshì.',meaning:'Morgen ist eine Prüfung.'},
+  w29:{hanzi:'这个字是什么意思?',pinyin:'Zhège zì shì shénme yìsi?',meaning:'Was bedeutet dieses Zeichen?'},
+  w30:{hanzi:'他说话很慢。',pinyin:'Tā shuōhuà hěn màn.',meaning:'Er spricht sehr langsam.'},
+  w31:{hanzi:'我在准备考试。',pinyin:'Wǒ zài zhǔnbèi kǎoshì.',meaning:'Ich bereite mich gerade auf die Prüfung vor.'},
+  w32:{hanzi:'我介绍一下,这是我朋友。',pinyin:'Wǒ jièshào yíxià, zhè shì wǒ péngyou.',meaning:'Darf ich vorstellen — das ist mein Freund.'},
+  w33:{hanzi:'我希望明天不下雨。',pinyin:'Wǒ xīwàng míngtiān bú xiàyǔ.',meaning:'Ich hoffe, dass es morgen nicht regnet.'},
+  w34:{hanzi:'我觉得中文很有意思。',pinyin:'Wǒ juéde Zhōngwén hěn yǒu yìsi.',meaning:'Ich finde Chinesisch interessant.'},
+  w35:{hanzi:'我想去中国旅游。',pinyin:'Wǒ xiǎng qù Zhōngguó lǚyóu.',meaning:'Ich möchte nach China reisen.'},
+  w36:{hanzi:'你累了,休息一下吧。',pinyin:'Nǐ lèi le, xiūxi yíxià ba.',meaning:'Du bist müde, ruh dich kurz aus.'},
+  w37:{hanzi:'这个苹果很便宜。',pinyin:'Zhège píngguǒ hěn piányi.',meaning:'Dieser Apfel ist billig.'},
+  w38:{hanzi:'祝你生日快乐!',pinyin:'Zhù nǐ shēngrì kuàilè!',meaning:'Alles Gute zum Geburtstag!'},
+  w39:{hanzi:'那个阿姨是我妈妈的朋友。',pinyin:'Nàge āyí shì wǒ māma de péngyou.',meaning:'Die Frau dort ist eine Freundin meiner Mutter.'},
+  w40:{hanzi:'我的爱好是看书。',pinyin:'Wǒ de àihào shì kàn shū.',meaning:'Mein Hobby ist Lesen.'},
+  w41:{hanzi:'教室里很安静。',pinyin:'Jiàoshì lǐ hěn ānjìng.',meaning:'Im Klassenzimmer ist es ruhig.'},
+  w42:{hanzi:'这个问题我没有办法。',pinyin:'Zhège wèntí wǒ méiyǒu bànfǎ.',meaning:'Für dieses Problem habe ich keine Lösung.'},
+  w43:{hanzi:'老师在办公室。',pinyin:'Lǎoshī zài bàngōngshì.',meaning:'Die Lehrerin ist im Büro.'},
+  w44:{hanzi:'谢谢你帮忙。',pinyin:'Xièxie nǐ bāngmáng.',meaning:'Danke für deine Hilfe.'},
+  w45:{hanzi:'今天比较冷。',pinyin:'Jīntiān bǐjiào lěng.',meaning:'Heute ist es ziemlich kalt.'},
+  w46:{hanzi:'我们一起看比赛吧。',pinyin:'Wǒmen yìqǐ kàn bǐsài ba.',meaning:'Lass uns zusammen den Wettkampf schauen.'},
+  w47:{hanzi:'你必须多喝水。',pinyin:'Nǐ bìxū duō hē shuǐ.',meaning:'Du musst mehr Wasser trinken.'},
+  w48:{hanzi:'这里的变化很大。',pinyin:'Zhèlǐ de biànhuà hěn dà.',meaning:'Hier hat sich viel verändert.'},
+  w49:{hanzi:'别人都回家了。',pinyin:'Biéren dōu huí jiā le.',meaning:'Die anderen sind alle nach Hause gegangen.'},
+  w50:{hanzi:'水果在冰箱里。',pinyin:'Shuǐguǒ zài bīngxiāng lǐ.',meaning:'Das Obst ist im Kühlschrank.'},
+  w51:{hanzi:'我去超市买东西。',pinyin:'Wǒ qù chāoshì mǎi dōngxi.',meaning:'Ich gehe im Supermarkt einkaufen.'},
+  w52:{hanzi:'他的成绩很好。',pinyin:'Tā de chéngjì hěn hǎo.',meaning:'Seine Noten sind gut.'},
+  w53:{hanzi:'北京是一个大城市。',pinyin:'Běijīng shì yí gè dà chéngshì.',meaning:'Peking ist eine große Stadt.'},
+  w54:{hanzi:'对不起,我迟到了。',pinyin:'Duìbuqǐ, wǒ chídào le.',meaning:'Entschuldigung, ich bin zu spät.'},
+  w55:{hanzi:'除了我,大家都来了。',pinyin:'Chúle wǒ, dàjiā dōu lái le.',meaning:'Außer mir sind alle gekommen.'},
+  w56:{hanzi:'这本词典是我的。',pinyin:'Zhè běn cídiǎn shì wǒ de.',meaning:'Dieses Wörterbuch gehört mir.'},
+  w57:{hanzi:'这个孩子很聪明。',pinyin:'Zhège háizi hěn cōngming.',meaning:'Dieses Kind ist klug.'},
+  w58:{hanzi:'你明天打算做什么?',pinyin:'Nǐ míngtiān dǎsuàn zuò shénme?',meaning:'Was hast du morgen vor?'},
+  w59:{hanzi:'别担心,我很好。',pinyin:'Bié dānxīn, wǒ hěn hǎo.',meaning:'Mach dir keine Sorgen, mir geht es gut.'},
+  w60:{hanzi:'我坐地铁去上班。',pinyin:'Wǒ zuò dìtiě qù shàngbān.',meaning:'Ich fahre mit der U-Bahn zur Arbeit.'},
+  w61:{hanzi:'你有中国地图吗?',pinyin:'Nǐ yǒu Zhōngguó dìtú ma?',meaning:'Hast du eine Landkarte von China?'},
+  w62:{hanzi:'今天的电影很短。',pinyin:'Jīntiān de diànyǐng hěn duǎn.',meaning:'Der Film heute ist kurz.'},
+  w63:{hanzi:'我每天早上锻炼。',pinyin:'Wǒ měitiān zǎoshang duànliàn.',meaning:'Ich mache jeden Morgen Sport.'},
+  w64:{hanzi:'我家附近有一个商店。',pinyin:'Wǒ jiā fùjìn yǒu yí gè shāngdiàn.',meaning:'In der Nähe meines Zuhauses gibt es einen Laden.'},
+  w65:{hanzi:'我要复习中文。',pinyin:'Wǒ yào fùxí Zhōngwén.',meaning:'Ich will Chinesisch wiederholen.'},
+  w66:{hanzi:'这个房间很干净。',pinyin:'Zhège fángjiān hěn gānjìng.',meaning:'Dieses Zimmer ist sauber.'},
+  w67:{hanzi:'我对中文很感兴趣。',pinyin:'Wǒ duì Zhōngwén hěn gǎn xìngqù.',meaning:'Ich interessiere mich sehr für Chinesisch.'},
+  w68:{hanzi:'我感冒了,不能去。',pinyin:'Wǒ gǎnmào le, bù néng qù.',meaning:'Ich bin erkältet und kann nicht kommen.'},
+  w69:{hanzi:'他刚才给我打电话。',pinyin:'Tā gāngcái gěi wǒ dǎ diànhuà.',meaning:'Er hat mich gerade eben angerufen.'},
+  w70:{hanzi:'我和他关系很好。',pinyin:'Wǒ hé tā guānxi hěn hǎo.',meaning:'Er und ich verstehen uns gut.'},
+  w71:{hanzi:'这里的环境很好。',pinyin:'Zhèlǐ de huánjìng hěn hǎo.',meaning:'Die Umgebung hier ist schön.'},
+  w72:{hanzi:'明天上午有一个会议。',pinyin:'Míngtiān shàngwǔ yǒu yí gè huìyì.',meaning:'Morgen Vormittag ist eine Besprechung.'},
+  w73:{hanzi:'你记得他的名字吗?',pinyin:'Nǐ jìde tā de míngzi ma?',meaning:'Erinnerst du dich an seinen Namen?'},
+  w74:{hanzi:'多吃水果,身体健康。',pinyin:'Duō chī shuǐguǒ, shēntǐ jiànkāng.',meaning:'Iss viel Obst, dann bleibst du gesund.'},
+  w75:{hanzi:'这个问题很简单。',pinyin:'Zhège wèntí hěn jiǎndān.',meaning:'Diese Frage ist einfach.'},
+  w76:{hanzi:'我经常去那个饭馆。',pinyin:'Wǒ jīngcháng qù nàge fànguǎn.',meaning:'Ich gehe oft in dieses Restaurant.'},
+  w77:{hanzi:'我决定去中国。',pinyin:'Wǒ juédìng qù Zhōngguó.',meaning:'Ich habe entschieden, nach China zu gehen.'},
+  w78:{hanzi:'我不太了解他。',pinyin:'Wǒ bú tài liǎojiě tā.',meaning:'Ich kenne ihn nicht besonders gut.'},
+};
 
 // -------- Leitner scheduling --------
 const INTERVAL_MS = {
@@ -1300,11 +1441,27 @@ function showAnswer(item){
   const box = document.getElementById('answerBox');
   const revealBtn = document.getElementById('revealBtn');
   if(revealBtn) revealBtn.style.display = 'none';
+  // Beispielsatz nur bei Wörtern: bei Satzkarten wäre er redundant.
+  const ex = item.type === 'word' ? EXAMPLES[item.id] : null;
+  const exampleHtml = ex ? `
+    <div class="example">
+      <div class="example-head">
+        <span class="example-label">Beispiel</span>
+        <button class="example-play" id="examplePlay" aria-label="Beispielsatz abspielen">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3z"/></svg>
+        </button>
+      </div>
+      <p class="example-hz">${ex.hanzi}</p>
+      <p class="example-py">${ex.pinyin}</p>
+      <p class="example-de">${ex.meaning}</p>
+    </div>
+  ` : '';
   box.innerHTML = `
     <div class="answer">
       <p class="hanzi">${item.hanzi}</p>
       <p class="pinyin">${item.pinyin}</p>
       <p class="meaning">${item.meaning}</p>
+      ${exampleHtml}
       <div class="grade-row">
         <button class="grade-btn again" id="gAgain">Nochmal</button>
         <button class="grade-btn good" id="gGood">Gut</button>
@@ -1312,6 +1469,10 @@ function showAnswer(item){
       </div>
     </div>
   `;
+  const exBtn = document.getElementById('examplePlay');
+  // Der Beispielsatz ist ein Satz, auch wenn die Karte ein Wort ist — daher
+  // Satztempo statt currentRate(), das sich am Kartentyp orientiert.
+  if(exBtn) exBtn.onclick = () => speak(ex.hanzi, slowMode ? RATE_SLOW : RATE_SENTENCE);
   document.getElementById('gAgain').onclick = () => grade('again');
   document.getElementById('gGood').onclick = () => grade('good');
   document.getElementById('gEasy').onclick = () => grade('easy');

@@ -111,6 +111,9 @@ dependency-free.
 { id: 'w01', hanzi: '大家', pinyin: 'dàjiā', meaning: 'alle (Personen)', level: 2, type: 'word' }
 // type is 'word' | 'sentence'; level is an approximate HSK 2.0-standard tag, not exam-precise
 
+// EXAMPLES: one usage sentence per word id, same three fields, no id/level/type
+{ w01: { hanzi: '大家好,我叫小明。', pinyin: 'Dàjiā hǎo, wǒ jiào Xiǎomíng.', meaning: '…' } }
+
 // progress: spaced-repetition state, keyed "<itemId>:<mode>" — one Leitner
 // box per (item, exercise mode), since recognition and production decay
 // differently. Item ids never contain ':'.
@@ -163,6 +166,28 @@ Vocab currently: 98 items (78 words split HSK2/HSK3, 20 sentences), hand
 list is just appending objects to the `ITEMS` array — no other code changes
 needed.
 
+## Example sentences (`EXAMPLES`)
+
+Every word has one example sentence, keyed by word id in the `EXAMPLES` object
+next to `ITEMS`. It is shown on reveal of a word card — in *every* mode — as a
+seal-red margin note under the answer, with its own small play button (sentence
+rate, honouring "langsam").
+
+Two deliberate constraints:
+
+- **Examples are not cards.** They're context, not drill material; making them
+  drillable would double the deck and re-introduce exactly the difficulty
+  ceiling that the sentence rewrite removed. Deck size stays 274.
+- **The frame around the new word is HSK1.** The point is that the target word
+  is the only unknown in the sentence, so the usage reads off immediately.
+  When adding vocab, add its example in the same spirit — short, concrete, and
+  built from 我/你/他, 是/有/在, 很/不/都, and HSK1 nouns.
+
+Sentence *cards* (`type: 'sentence'`, `level: 1`) were rewritten down to HSK1
+too: the old bank drilled 虽然…但是, 越…越, 把 and 一边…一边, which tests grammar
+parsing rather than listening. Keep new sentence cards short and HSK1-shaped;
+grammar beyond that belongs in a different exercise, not in dictation.
+
 ## Design system — preserve this, don't default back to generic styling
 
 Deliberate "Chinese exercise-book" identity, not a generic flashcard-app
@@ -204,8 +229,9 @@ Only the things that are load-bearing and easy to break by accident:
   typically `SameSite=None`.
 - **Static files come from the `STATIC` whitelist, never from `url.pathname`.**
   Building a path from the request is how traversal gets in.
-- **`ITEMS` is trusted because it's hardcoded.** `showAnswer` interpolates
-  `hanzi`/`pinyin`/`meaning` straight into `innerHTML`. If vocab ever comes
+- **`ITEMS` and `EXAMPLES` are trusted because they're hardcoded.** `showAnswer`
+  interpolates `hanzi`/`pinyin`/`meaning` from both straight into `innerHTML`
+  (the example block included). If vocab ever comes
   from the API or user input, escape at those sites first — that's the one live
   XSS sink in the app.
 - Progress data reaching the DOM must stay numeric-only (the `validateProgress`
