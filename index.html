@@ -664,6 +664,14 @@
     margin-bottom: 10px;
   }
   .empty-state p{ color: var(--ink-soft); margin: 6px 0 22px; }
+  .empty-state p b{ color: var(--ink); font-weight: 600; }
+  /* 空 "empty": ink, not jade — jade means done, and nothing was done. */
+  .empty-state .hanzi-big.empty{ color: var(--ink-soft); }
+  .empty-state .empty-hint{
+    font-family:"JetBrains Mono", monospace;
+    font-size: 12px;
+    margin: 0;
+  }
 
   footer{
     margin-top: 22px;
@@ -1481,8 +1489,11 @@ function loadModes(){
   try{
     const raw = localStorage.getItem(MODES_KEY);
     if(raw){
-      const list = JSON.parse(raw).filter(m => MODE_IDS.includes(m));
-      if(list.length) enabledModes = list;
+      // An empty list is a real choice ("nothing right now") and is kept;
+      // only a list that had entries but none valid any more falls back.
+      const parsed = JSON.parse(raw);
+      const list = Array.isArray(parsed) ? parsed.filter(m => MODE_IDS.includes(m)) : [];
+      if(Array.isArray(parsed) && (list.length || !parsed.length)) enabledModes = list;
     }
   }catch(e){}
 }
@@ -1609,8 +1620,9 @@ function listsByAge(){ return vocab.lists.slice().sort((a, b) => a.created - b.c
 
 function activeSources(){
   const valid = new Set(SOURCE_CHIPS.map(s => s.id).concat(vocab.lists.map(l => l.id)));
-  const list = (vocab.sources || DEFAULT_SOURCES).filter(s => valid.has(s));
-  return list.length ? list : DEFAULT_SOURCES;
+  // Unset (null) means "never chosen" and gets the default; an empty array is
+  // a deliberate empty selection and stays empty.
+  return (vocab.sources || DEFAULT_SOURCES).filter(s => valid.has(s));
 }
 
 // Items in the active sources: bank first in ITEMS order, then the lists
@@ -1968,7 +1980,6 @@ function renderModeChips(){
     const on = enabledModes.includes(m.id);
     el.appendChild(chipButton(m.chip, on, () => {
       const next = on ? enabledModes.filter(x => x !== m.id) : enabledModes.concat([m.id]);
-      if(!next.length) return; // never leave the deck with no modes at all
       enabledModes = MODE_IDS.filter(x => next.includes(x)); // keep canonical order
       saveModes();
       afterDeckChange();
@@ -1989,7 +2000,6 @@ function renderSourceChips(){
     const on = active.includes(c.id);
     el.appendChild(chipButton(c.label, on, () => {
       const next = on ? active.filter(x => x !== c.id) : active.concat([c.id]);
-      if(!next.length) return; // at least one source stays on
       vocab.sources = next;
       saveVocab();
       afterDeckChange();
@@ -2036,6 +2046,62 @@ function zeichenPromptHtml(it){
     </div>`;
 }
 
+// Nothing to practise because of the selection, not because the work is done.
+// Says which half is missing (Wörter / Übungsart) or why the combination is
+// empty, and offers the one action that fixes it.
+function renderEmptyDeck(cardEl){
+  const sources = activeSources();
+  const noModes = !enabledModes.length;
+  const noSources = !sources.length;
+  const detailsOpen = document.getElementById('detailsBtn').getAttribute('aria-expanded') === 'true';
+  let title, text, action = null;
+
+  if(noModes && noSources){
+    title = 'Nichts ausgewählt.';
+    text = 'Wähl Wörter (HSK-Stufe, Sätze oder eine eigene Liste) und mindestens eine Übungsart.';
+  } else if(noSources){
+    title = 'Keine Wörter ausgewählt.';
+    text = 'Wähl eine HSK-Stufe, Sätze oder eine eigene Liste.';
+  } else if(noModes){
+    title = 'Keine Übungsart ausgewählt.';
+    text = 'Wähl Hören, Schreiben, Lesen oder Zeichen.';
+  } else {
+    // Both halves chosen, still no cards: empty own lists, or a combination
+    // that yields nothing (sentences have no Schreiben/Zeichen cards).
+    const lists = vocab.lists.filter(l => sources.includes(l.id));
+    const onlyLists = lists.length === sources.length;
+    const emptyList = lists.find(l => !l.items.length);
+    if(onlyLists && emptyList){
+      title = lists.length > 1 ? 'Deine Listen sind noch leer.' : 'Deine Liste ist noch leer.';
+      text = 'Füg ein paar Wörter hinzu, dann geht es los.';
+      action = { label: 'Wörter hinzufügen', run: () => openEditor(emptyList.id) };
+    } else {
+      title = 'Diese Auswahl ergibt keine Karten.';
+      text = sources.every(x => x === 'sent')
+        ? 'Sätze gibt es nur zum Hören und Lesen — nicht zum Schreiben oder als Zeichen.'
+        : 'Wähl eine weitere Übungsart oder andere Wörter.';
+    }
+  }
+  if(!action && !detailsOpen){
+    action = { label: 'Auswahl öffnen', run: () => { setDetails(true); render(); window.scrollTo(0, 0); } };
+  }
+
+  cardEl.innerHTML = `
+    <div class="empty-state">
+      <div class="hanzi-big empty">空</div>
+      <p><b>${esc(title)}</b><br>${esc(text)}</p>
+      ${action ? '<button class="primary-btn" id="emptyActionBtn"></button>' : (detailsOpen ? '<p class="empty-hint">↑ oben auswählen</p>' : '')}
+    </div>
+  `;
+  if(action){
+    const b = document.getElementById('emptyActionBtn');
+    b.textContent = action.label;
+    b.onclick = action.run;
+  }
+  cells = [];
+  undoOrder = [];
+}
+
 function render(){
   stopWriters();
   renderStats();
@@ -2045,6 +2111,11 @@ function render(){
   const cardEl = document.getElementById('card');
   const card = currentCard();
   const item = card && card.item;
+
+  if(!item && !deckCards().length){
+    renderEmptyDeck(cardEl);
+    return;
+  }
 
   if(!item){
     cardEl.innerHTML = `
@@ -2941,6 +3012,8 @@ function setDetails(open){
 document.getElementById('detailsBtn').onclick = () => {
   const open = document.getElementById('detailsBtn').getAttribute('aria-expanded') === 'true';
   setDetails(!open);
+  // The empty-deck card's hint depends on whether the panel is open.
+  if(!editing && !currentCard() && !deckCards().length) render();
 };
 
 (async function init(){

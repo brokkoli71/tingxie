@@ -219,8 +219,12 @@ and the "keep practising" path all do — which applies `modeApplies()`.
 Audio is available in *every* mode by design — in `de2hz` it's a pronunciation
 hint, and whether to use it is the learner's call. Sessions **mix** modes
 rather than blocking by type; chips in the details panel toggle modes on/off
-(stored per-device in `localStorage`, not in synced progress) and the last
-enabled mode cannot be switched off; likewise the last source. `NEW_PER_SESSION`
+(stored per-device in `localStorage`, not in synced progress). Both modes and
+sources may be switched off entirely: an empty selection is stored as `[]`
+and kept (only an *unset* selection gets the defaults). The card then shows
+`renderEmptyDeck()` — 空, which half is missing or why the combination is
+empty (e.g. Sätze × Zeichen), and the one fixing action ("Auswahl öffnen",
+or "Wörter hinzufügen" for an empty own list). `NEW_PER_SESSION`
 (12) caps unseen cards per session — except for the **newest enabled list**,
 whose new cards all come at once: a lesson just added is what the learner
 wants to drill now. New Zeichen cards keep their order, interleaved with the
