@@ -41,6 +41,9 @@ services:
       PORT: "8080"
       DATA_DIR: /data
       TINGXIE_TOKEN: "${TINGXIE_TOKEN:-}"
+      # Access email whose progress lives in the original progress.json; other
+      # users get their own file under data/users/. Set it in .env.
+      TINGXIE_OWNER: "${TINGXIE_OWNER:-}"
       TTS_URL: http://tts:5002
     depends_on:
       - tts

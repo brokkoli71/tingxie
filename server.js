@@ -1,5 +1,5 @@
-// tingxie server: serves the static frontend and persists progress as a JSON
-// file. Single user, low write volume, last-write-wins — no DB needed.
+// tingxie server: serves the static frontend and persists progress as JSON
+// files, one per user. Low write volume, last-write-wins — no DB needed.
 // Dependency-free on purpose (Node stdlib only), so the image needs no install
 // step and there is no lockfile to keep patched.
 
@@ -14,6 +14,14 @@ const PROGRESS_FILE = path.join(DATA_DIR, 'progress.json');
 // Optional shared secret. If set, every /api request must send it as
 // X-Tingxie-Token. Leave unset when the app sits behind Cloudflare Access.
 const TOKEN = process.env.TINGXIE_TOKEN || '';
+// Users are told apart by the email Cloudflare Access puts on every request it
+// lets through. The owner keeps the original progress.json (so nothing needs
+// migrating); everyone else gets users/<sha256(email)>.json. Requests without
+// the header — local dev, or the LAN path that bypasses Access — fall back to
+// progress.json too.
+const OWNER = (process.env.TINGXIE_OWNER || '').trim().toLowerCase();
+const USERS_DIR = path.join(DATA_DIR, 'users');
+const EMAIL_HEADER = 'cf-access-authenticated-user-email';
 // Base URL of the edge-tts relay (see tts/tts.py). Unset = feature off, and
 // the frontend falls back to a local voice or Google Translate.
 const TTS_URL = process.env.TTS_URL || '';
@@ -46,9 +54,18 @@ function sendJson(res, status, obj) {
   send(res, status, JSON.stringify(obj), { 'Content-Type': 'application/json; charset=utf-8' });
 }
 
-async function readProgress() {
+// The file name is a hex digest, never the header itself, so a crafted header
+// cannot steer the path anywhere.
+function progressFileFor(req) {
+  const email = String(req.headers[EMAIL_HEADER] || '').trim().toLowerCase();
+  if (!email || email === OWNER) return PROGRESS_FILE;
+  const id = crypto.createHash('sha256').update(email).digest('hex');
+  return path.join(USERS_DIR, `${id}.json`);
+}
+
+async function readProgress(file) {
   try {
-    return JSON.parse(await fs.readFile(PROGRESS_FILE, 'utf8'));
+    return JSON.parse(await fs.readFile(file, 'utf8'));
   } catch (e) {
     if (e.code === 'ENOENT') return {}; // first run
     throw e;
@@ -57,11 +74,11 @@ async function readProgress() {
 
 // Write to a temp file and rename, so a crash mid-write can never leave a
 // truncated progress.json behind.
-async function writeProgress(obj) {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  const tmp = `${PROGRESS_FILE}.${process.pid}.tmp`;
+async function writeProgress(file, obj) {
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  const tmp = `${file}.${process.pid}.tmp`;
   await fs.writeFile(tmp, JSON.stringify(obj), 'utf8');
-  await fs.rename(tmp, PROGRESS_FILE);
+  await fs.rename(tmp, file);
 }
 
 function readBody(req) {
@@ -128,7 +145,7 @@ async function handleApi(req, res, url) {
   }
 
   if (req.method === 'GET') {
-    return sendJson(res, 200, await readProgress());
+    return sendJson(res, 200, await readProgress(progressFileFor(req)));
   }
 
   // PUT only, and only with a JSON content type. Both are deliberate CSRF
@@ -150,7 +167,7 @@ async function handleApi(req, res, url) {
     }
     const problem = validateProgress(data);
     if (problem) return sendJson(res, 400, { error: problem });
-    await writeProgress(data);
+    await writeProgress(progressFileFor(req), data);
     return sendJson(res, 200, { ok: true, items: Object.keys(data).length });
   }
 
@@ -215,7 +232,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`tingxie listening on :${PORT} (data: ${PROGRESS_FILE}${TOKEN ? ', token auth on' : ''})`);
+  console.log(`tingxie listening on :${PORT} (data: ${PROGRESS_FILE}${TOKEN ? ', token auth on' : ''}${OWNER ? ', owner set' : ', TINGXIE_OWNER unset: owner progress.json only reachable without Access'})`);
 });
 
 for (const sig of ['SIGTERM', 'SIGINT']) {

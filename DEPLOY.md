@@ -127,6 +127,13 @@ Setup, as actually performed:
 
 Verify in a private window — the email prompt should appear instead of the app.
 
+**More than one user.** Add each email to the policy's `Emails` rule. The app
+keys progress by the `Cf-Access-Authenticated-User-Email` header Access sets:
+set `TINGXIE_OWNER=h.spitz@outlook.de` in `.env` so the owner keeps the
+original `data/progress.json`; everyone else gets `data/users/<sha256>.json`
+automatically. Without `TINGXIE_OWNER`, the owner logging in through Access
+would start from an empty file (the old one is still there, just not used).
+
 Leave *Cloudflare One Client authentication* as it is; it authenticates WARP
 device sessions and is unrelated (it is not an identity provider, so toggling
 it neither causes nor fixes the error above).

@@ -47,11 +47,14 @@ anywhere else.
 API (`server.js`, deliberately this small):
 ```
 GET  /api/progress   -> { "<itemId>": {box, next, seen, correct}, ... }
-PUT  /api/progress   <- same shape, overwrites (last-write-wins, single user)
+PUT  /api/progress   <- same shape, overwrites (last-write-wins per user)
 GET  /api/health     -> {"ok":true}
 ```
-Backed by a flat JSON file at `$DATA_DIR/progress.json`, written temp-file +
-rename. Optional `TINGXIE_TOKEN` env enables an `X-Tingxie-Token` check; unset
+Backed by flat JSON files, written temp-file + rename: one per user, picked by
+the `Cf-Access-Authenticated-User-Email` header — `$DATA_DIR/progress.json`
+for `TINGXIE_OWNER` and for requests without the header, otherwise
+`$DATA_DIR/users/<sha256(email)>.json`. The path is a digest, never the header
+text. On the LAN the header is spoofable; same accepted risk as below. Optional `TINGXIE_TOKEN` env enables an `X-Tingxie-Token` check; unset
 it when running behind Cloudflare Access.
 
 ## Deployment target: TrueNAS
