@@ -54,16 +54,23 @@ function sendJson(res, status, obj) {
   send(res, status, JSON.stringify(obj), { 'Content-Type': 'application/json; charset=utf-8' });
 }
 
-// The file name is a hex digest, never the header itself, so a crafted header
-// cannot steer the path anywhere.
-function progressFileFor(req) {
+// Per-user data files. The owner (and requests without the Access header)
+// keep the original names in DATA_DIR; everyone else gets
+// users/<sha256(email)><suffix>. The file name is a hex digest, never the
+// header itself, so a crafted header cannot steer the path anywhere.
+const KINDS = {
+  progress: { owner: PROGRESS_FILE, suffix: '.json' },
+  vocab: { owner: path.join(DATA_DIR, 'vocab.json'), suffix: '.vocab.json' },
+};
+function userFileFor(req, kind) {
+  const k = KINDS[kind];
   const email = String(req.headers[EMAIL_HEADER] || '').trim().toLowerCase();
-  if (!email || email === OWNER) return PROGRESS_FILE;
+  if (!email || email === OWNER) return k.owner;
   const id = crypto.createHash('sha256').update(email).digest('hex');
-  return path.join(USERS_DIR, `${id}.json`);
+  return path.join(USERS_DIR, `${id}${k.suffix}`);
 }
 
-async function readProgress(file) {
+async function readJsonFile(file) {
   try {
     return JSON.parse(await fs.readFile(file, 'utf8'));
   } catch (e) {
@@ -73,12 +80,21 @@ async function readProgress(file) {
 }
 
 // Write to a temp file and rename, so a crash mid-write can never leave a
-// truncated progress.json behind.
-async function writeProgress(file, obj) {
-  await fs.mkdir(path.dirname(file), { recursive: true });
-  const tmp = `${file}.${process.pid}.tmp`;
-  await fs.writeFile(tmp, JSON.stringify(obj), 'utf8');
-  await fs.rename(tmp, file);
+// truncated file behind. Writes to one file are chained: two PUTs in flight
+// at once (quick taps) used to share a temp name, and the second rename then
+// failed with ENOENT. Chaining also keeps them landing in arrival order.
+const writeChains = new Map();
+function writeJsonFile(file, obj) {
+  const run = async () => {
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    const tmp = `${file}.${process.pid}.${crypto.randomBytes(4).toString('hex')}.tmp`;
+    await fs.writeFile(tmp, JSON.stringify(obj), 'utf8');
+    await fs.rename(tmp, file);
+  };
+  const next = (writeChains.get(file) || Promise.resolve()).then(run, run);
+  writeChains.set(file, next);
+  next.finally(() => { if (writeChains.get(file) === next) writeChains.delete(file); }).catch(() => {});
+  return next;
 }
 
 function readBody(req) {
@@ -119,6 +135,48 @@ function validateProgress(data) {
   return null;
 }
 
+// User word lists. Unlike the bank in index.html these are user input and do
+// reach the DOM, so the frontend escapes them; this check only keeps the
+// shape and sizes sane. Anything not listed here is rejected, not ignored.
+const VOCAB_ID = /^[a-z0-9]{1,24}$/;
+const VOCAB_SOURCES = /^(hsk[123]|sent|l[a-z0-9]{1,23})$/;
+const VOCAB_LIMITS = { lists: 200, itemsPerList: 500, words: 5000, sources: 210 };
+function isObj(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
+function strOk(v, max, allowEmpty = false) {
+  return typeof v === 'string' && v.length <= max && (allowEmpty || v.length > 0);
+}
+function onlyKeys(obj, keys) { return Object.keys(obj).every((k) => keys.includes(k)); }
+function validateVocab(data) {
+  if (!isObj(data) || !onlyKeys(data, ['sources', 'lists', 'words'])) {
+    return 'expected {sources, lists, words}';
+  }
+  const { sources = [], lists = [], words = {} } = data;
+  if (!Array.isArray(sources) || sources.length > VOCAB_LIMITS.sources
+      || !sources.every((x) => typeof x === 'string' && VOCAB_SOURCES.test(x))) {
+    return 'bad sources';
+  }
+  if (!Array.isArray(lists) || lists.length > VOCAB_LIMITS.lists) return 'bad lists';
+  for (const l of lists) {
+    if (!isObj(l) || !onlyKeys(l, ['id', 'name', 'created', 'items'])) return 'bad list entry';
+    if (typeof l.id !== 'string' || !VOCAB_ID.test(l.id)) return 'bad list id';
+    if (!strOk(l.name, 40)) return 'bad list name';
+    if (typeof l.created !== 'number' || !Number.isFinite(l.created)) return 'bad list created';
+    if (!Array.isArray(l.items) || l.items.length > VOCAB_LIMITS.itemsPerList
+        || !l.items.every((x) => typeof x === 'string' && VOCAB_ID.test(x))) {
+      return 'bad list items';
+    }
+  }
+  if (!isObj(words) || Object.keys(words).length > VOCAB_LIMITS.words) return 'bad words';
+  for (const [id, w] of Object.entries(words)) {
+    if (!VOCAB_ID.test(id)) return 'bad word id';
+    if (!isObj(w) || !onlyKeys(w, ['hanzi', 'pinyin', 'meaning'])) return `bad word "${id}"`;
+    if (!strOk(w.hanzi, 30) || !strOk(w.pinyin, 80, true) || !strOk(w.meaning, 120, true)) {
+      return `bad word "${id}" fields`;
+    }
+  }
+  return null;
+}
+
 // Constant-time compare, so a wrong token leaks nothing through response timing.
 function tokenOk(supplied) {
   const a = Buffer.from(String(supplied || ''));
@@ -140,12 +198,13 @@ async function handleApi(req, res, url) {
     return proxyTts(req, res, url);
   }
 
-  if (url.pathname !== '/api/progress') {
-    return sendJson(res, 404, { error: 'not found' });
-  }
+  const kind = url.pathname === '/api/progress' ? 'progress'
+    : url.pathname === '/api/vocab' ? 'vocab' : null;
+  if (!kind) return sendJson(res, 404, { error: 'not found' });
+  const file = userFileFor(req, kind);
 
   if (req.method === 'GET') {
-    return sendJson(res, 200, await readProgress(progressFileFor(req)));
+    return sendJson(res, 200, await readJsonFile(file));
   }
 
   // PUT only, and only with a JSON content type. Both are deliberate CSRF
@@ -165,10 +224,10 @@ async function handleApi(req, res, url) {
     } catch (e) {
       return sendJson(res, 400, { error: 'invalid JSON' });
     }
-    const problem = validateProgress(data);
+    const problem = kind === 'progress' ? validateProgress(data) : validateVocab(data);
     if (problem) return sendJson(res, 400, { error: problem });
-    await writeProgress(progressFileFor(req), data);
-    return sendJson(res, 200, { ok: true, items: Object.keys(data).length });
+    await writeJsonFile(file, data);
+    return sendJson(res, 200, { ok: true });
   }
 
   return sendJson(res, 405, { error: 'method not allowed' }, { Allow: 'GET, PUT' });
