@@ -176,10 +176,20 @@ settings screen. User vocabulary for the axes is pinyin / deutsch / hanzi.
 
 `zeichen` cards are **characters, not words**: one per distinct character of
 the active word items (sentence cards contribute none), in order of first
-appearance, so a course's characters arrive in course order. A character
-never seen before opens in a *study* state (stroke animation + breakdown,
-then trace over the outline) — you can't recall what you never learned.
-Reviews are written without an outline; "Antwort zeigen" mid-quiz animates it.
+appearance, so a course's characters arrive in course order. Every card is
+asked without an outline; "Antwort zeigen" mid-quiz animates it.
+
+**Learning first is opt-in, in every mode.** New cards are asked as if known
+(most new vocab was already met in class). Unseen cards show an
+"erst lernen" pill next to "langsam" (no extra row): it opens the card
+revealed — for `zeichen`, stroke animation + breakdown, then trace over the
+outline — with "Weiter" instead of grades. Nothing is saved; the card is
+re-queued 4 later and asked for real, and only that answer starts its box
+(`learning`, `learnedNow`, `learnNext()`).
+
+The login email (`/cdn-cgi/access/get-identity`, answered by Cloudflare
+Access itself, no server code) sits right-aligned in the box-stamp row of the
+details panel, so it costs no vertical space; empty locally/on the LAN.
 The breakdown replaces the example sentence on these cards so they still fit
 a phone screen. `zeichen` is **off by default** (`DEFAULT_MODES`): switching it
 on silently would add ~140–220 cards to an existing deck.

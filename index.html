@@ -169,6 +169,31 @@
     padding: 7px 13px;
     cursor: pointer;
   }
+  /* "erst lernen": same pill as "langsam", in seal red, only on unseen cards. */
+  .learn-btn{
+    font-family:"JetBrains Mono", monospace;
+    font-size: 12px;
+    background: transparent;
+    border: 1.5px solid var(--seal);
+    color: var(--seal-dark);
+    border-radius: 20px;
+    padding: 7px 13px;
+    cursor: pointer;
+  }
+  /* Login email: rides in the box-stamp row's spare width, so it costs no
+     vertical space. Truncated, full address in the title. */
+  .whoami{
+    margin-left: auto;
+    align-self: flex-end;
+    min-width: 0;
+    max-width: 50%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family:"JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
   .rate-toggle.active{
     border-color: var(--jade);
     color: var(--jade);
@@ -680,6 +705,8 @@
     /* Play sits far right, inside the right thumb's arc. Reordered rather
        than row-reversed, so text still reads left-to-right. */
     .controls-row .rate-toggle{ order:1; margin-right:auto; }
+    .controls-row .learn-btn{ order:1; margin-right:auto; }
+    .controls-row:has(.learn-btn) .rate-toggle{ margin-right:0; }
     .controls-row .play-btn{ order:2; }
     /* Bigger tap target now that it's the primary thumb control. */
     .play-btn{ width: 68px; height: 68px; }
@@ -1664,6 +1691,7 @@ function lookupItem(id){
 
 function buildQueue(){
   const now = Date.now();
+  learning = null;
   // A freshly added lesson is what the learner wants to drill right now, so
   // its new cards skip the per-session cap. Everything else stays capped.
   const newest = newestActiveList();
@@ -1714,6 +1742,39 @@ function currentItem(){
   const c = currentCard();
   return c ? c.item : null;
 }
+
+// Learning a card first is opt-in: by default a new card is asked like any
+// other (most new vocab is already known from class). "erst lernen" shows it
+// — for Zeichen the stroke animation plus tracing — without grading; the card
+// then comes back a few cards later to be answered for real, and only that
+// answer starts its Leitner box.
+let learning = null;         // key of the card currently being learned
+const learnedNow = new Set(); // keys learned this session, so no second offer
+
+function learnCard(){
+  const card = currentCard();
+  if(!card) return;
+  learning = card.key;
+  revealed = false;
+  render();
+  if(card.mode !== 'zeichen') speak(card.item.hanzi);
+}
+
+function learnNext(){
+  const card = currentCard();
+  if(!card) return;
+  learnedNow.add(card.key);
+  learning = null;
+  queue.splice(Math.min(qIndex + 4, queue.length), 0, card.key);
+  qIndex++;
+  revealed = false;
+  render();
+}
+
+const LEARN_NEXT_HTML = `
+  <div class="grade-row">
+    <button class="grade-btn good" id="learnNextBtn">Weiter – gleich nochmal abfragen</button>
+  </div>`;
 
 function grade(result){
   const card = currentCard();
@@ -1862,6 +1923,26 @@ function renderStats(){
     div.innerHTML = `<span class="n">${boxCounts[b]}</span><span>Box ${b}</span>`;
     boxesEl.appendChild(div);
   }
+  if(whoami){
+    const w = document.createElement('span');
+    w.className = 'whoami';
+    w.textContent = whoami; // textContent: it's an external string
+    w.title = 'Angemeldet als ' + whoami;
+    boxesEl.appendChild(w);
+  }
+}
+
+// Who Cloudflare Access logged in — the same identity the server keys progress
+// by. Cloudflare answers this path itself on the protected hostname; locally
+// or over the LAN it doesn't exist and the line just stays empty.
+let whoami = '';
+async function loadWhoami(){
+  try{
+    const res = await fetch('/cdn-cgi/access/get-identity', { cache: 'no-store' });
+    if(!res.ok) return;
+    const id = await res.json();
+    if(id && typeof id.email === 'string'){ whoami = id.email; renderStats(); }
+  }catch(e){}
 }
 
 function chipButton(label, on, onclick, extraClass){
@@ -2001,9 +2082,11 @@ function render(){
 
   const format = answerFormat(card.mode);
   const wantsWriting = format === 'canvas';
-  // A character never seen before can't be recalled, only learned: it opens
-  // already shown, then gets traced over its outline.
-  const study = format === 'stroke' && !progress[card.key];
+  // Learn mode (opt-in via "erst lernen"): Zeichen show the strokes and get
+  // traced over their outline; other cards simply open revealed.
+  const isLearning = learning === card.key;
+  const study = format === 'stroke' && isLearning;
+  const offerLearn = !progress[card.key] && !learnedNow.has(card.key) && !isLearning && !revealed;
   const askLabel = study ? 'Schau dir die Strichfolge an, dann schreib nach.' : mode.ask;
 
   const pinyinHtml = `
@@ -2039,6 +2122,7 @@ function render(){
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3z"/><path d="M16.5 12c0-1.77-.77-3.29-2-4.24v8.48c1.23-.95 2-2.47 2-4.24z"/></svg>
       </button>
       <button class="rate-toggle ${slowMode ? 'active' : ''}" id="rateBtn">langsam</button>
+      ${offerLearn ? '<button class="learn-btn" id="learnBtn">erst lernen</button>' : ''}
     </div>
 
     ${answerAreaHtml}
@@ -2067,8 +2151,11 @@ function render(){
     showAnswer(card);
   };
 
+  const learnBtn = document.getElementById('learnBtn');
+  if(learnBtn) learnBtn.onclick = learnCard;
+
   if(format === 'stroke') setupStroke(card, study);
-  else if(revealed) showAnswer(card);
+  else if(revealed || isLearning) showAnswer(card);
 }
 
 function canvasAreaHtml(askLabel){
@@ -2291,6 +2378,8 @@ const GRADE_ROW_HTML = `
   </div>`;
 
 function bindGrades(){
+  const n = document.getElementById('learnNextBtn');
+  if(n) n.onclick = learnNext;
   const a = document.getElementById('gAgain');
   if(!a) return;
   a.onclick = () => grade('again');
@@ -2318,7 +2407,7 @@ function showAnswer(card, opts = {}){
         ${big}
         ${reading ? `<p class="pinyin">${reading}</p>` : ''}
         ${charNoteHtml(item.char)}
-        ${opts.study ? '' : GRADE_ROW_HTML}
+        ${opts.study ? '' : learning === card.key ? LEARN_NEXT_HTML : GRADE_ROW_HTML}
       </div>
     `;
     bindGrades();
@@ -2352,7 +2441,7 @@ function showAnswer(card, opts = {}){
       <p class="pinyin">${esc(item.pinyin)}</p>
       <p class="meaning">${esc(item.meaning)}</p>
       ${exampleHtml}
-      ${GRADE_ROW_HTML}
+      ${learning === card.key ? LEARN_NEXT_HTML : GRADE_ROW_HTML}
     </div>
   `;
   const exBtn = document.getElementById('examplePlay');
@@ -2859,6 +2948,7 @@ document.getElementById('detailsBtn').onclick = () => {
   let open = false;
   try{ open = localStorage.getItem(DETAILS_KEY) === '1'; }catch(e){}
   setDetails(open);
+  loadWhoami();
   await Promise.all([loadProgress(), loadVocab()]);
   buildQueue();
   render();
