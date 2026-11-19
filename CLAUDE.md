@@ -15,6 +15,11 @@ reading/listening passively), and specifically wants to drill listening
 comprehension — hence the dictation-first design instead of a
 recognize-and-tap format like Duolingo/standard flashcard apps.
 
+A second user (HSK1 beginner, taking a course) has her own progress and word
+lists. For her the app also teaches characters: stroke order (checked while
+writing), components, and where the character comes from — the `zeichen`
+mode, `CHARS`, and user lists below.
+
 ## Current state
 
 Frontend is a single self-contained `index.html` — no build step, no npm
@@ -28,6 +33,11 @@ Cloudflare Tunnel) is documented in `DEPLOY.md`.
 
 - Plain HTML/CSS/JS, ES2017-ish, no framework
 - Google Fonts via CDN `<link>` (Noto Serif SC, Source Serif 4, JetBrains Mono)
+- Hanzi Writer (`hanzi-writer@3.7.3`) and its stroke data
+  (`hanzi-writer-data@2.0.1`, one JSON per character, fetched on demand) from
+  jsDelivr, **pinned**. The one runtime library, loaded `async`; every use
+  checks `window.HanziWriter` and falls back to the freehand canvas, so the app
+  still works offline or if jsDelivr is blocked. Keep versions pinned.
 - Web Speech API (`speechSynthesis`) for TTS, with a fallback (see below)
 - Storage: abstracted behind a `Storage.get/set` object (see below) — do not
   call `window.storage` or `localStorage` directly elsewhere in the code
@@ -42,18 +52,24 @@ object, so a failed sync self-heals on the next one.
 
 Still true: all persistence must go through `Storage.get(key)` /
 `Storage.set(key, value)` — do not call `fetch` or `localStorage` for progress
-anywhere else.
+anywhere else. Keys map to endpoints in `ENDPOINTS` (`STORAGE_KEY` →
+`/api/progress`, `VOCAB_KEY` → `/api/vocab`). `Storage.set` keeps one PUT per
+key in flight and only the newest value queued, so quick taps can't land an
+older state last; the server additionally chains writes per file.
 
 API (`server.js`, deliberately this small):
 ```
 GET  /api/progress   -> { "<itemId>": {box, next, seen, correct}, ... }
 PUT  /api/progress   <- same shape, overwrites (last-write-wins per user)
+GET  /api/vocab      -> { sources: [...], lists: [...], words: {...} }  (see below)
+PUT  /api/vocab      <- same shape, strictly validated (validateVocab)
 GET  /api/health     -> {"ok":true}
 ```
 Backed by flat JSON files, written temp-file + rename: one per user, picked by
 the `Cf-Access-Authenticated-User-Email` header — `$DATA_DIR/progress.json`
 for `TINGXIE_OWNER` and for requests without the header, otherwise
-`$DATA_DIR/users/<sha256(email)>.json`. The path is a digest, never the header
+`$DATA_DIR/users/<sha256(email)>.json`; vocab likewise in `vocab.json` /
+`users/<sha256>.vocab.json`. The path is a digest, never the header
 text. On the LAN the header is spoofable; same accepted risk as below. Optional `TINGXIE_TOKEN` env enables an `X-Tingxie-Token` check; unset
 it when running behind Cloudflare Access.
 
@@ -123,12 +139,31 @@ dependency-free.
 { 'w01:listen': { box: 1-5, next: <timestamp ms>, seen: <count>, correct: <count> } }
 ```
 
+```js
+// CHARS: per-character breakdown, German, hardcoded (trusted like ITEMS).
+// Covers every character of the bank's words; anything else (own words)
+// shows stroke order plus "Herkunft noch nicht erfasst".
+{ '好': { py: 'hǎo', de: 'gut', kind: 'Sinnzeichen',
+          parts: [['女','Frau'], ['子','Kind']], story: 'Eine Frau 女 mit ihrem Kind 子 …' } }
+// kind: Bildzeichen | Sinnzeichen | Laut-Sinn-Zeichen | Symbol; absent = origin
+// disputed. parts[i][2] is the reading of a sound component ("Klang mǎ").
+// Source: Make Me a Hanzi, checked; folk etymologies (我 = "hand + weapon",
+// 朋 = "two moons") deliberately not passed on — "Herkunft umstritten" instead.
+
+// vocab (per user, /api/vocab): the learner's own lists
+{ sources: ['hsk1', 'l…'],                 // enabled deck sources; unset = hsk2, hsk3, sent
+  lists: [{ id: 'l…', name: 'Lektion 3', created: <ms>, items: ['h05', 'u…'] }],
+  words: { 'u…': { hanzi, pinyin, meaning } } }   // own words; bank words keep bank ids
+
+// Zeichen cards are keyed 'z' + the character: 'z好:zeichen'.
+```
+
 `migrateProgress()` rewrites pre-modes keys (bare `w01`) to `w01:listen` on
 load and saves immediately; it's idempotent, so it can stay indefinitely.
 
 ## Exercise modes
 
-Three named types (`MODES` in `index.html`), *not* an input×output matrix —
+Four named types (`MODES` in `index.html`), *not* an input×output matrix —
 the matrix yields 12 mostly-degenerate combinations and turns the app into a
 settings screen. User vocabulary for the axes is pinyin / deutsch / hanzi.
 
@@ -137,6 +172,21 @@ settings screen. User vocabulary for the axes is pinyin / deutsch / hanzi.
 | `listen` | Hören | audio only | type pinyin | type pinyin |
 | `de2hz` | Schreiben | German meaning | draw the hanzi | **not offered** |
 | `hz2de` | Lesen | hanzi | German meaning, self-assessed — no input | same |
+| `zeichen` | Zeichen | word with the character blanked (你＿), pinyin, meaning | write the one character, stroke order checked (Hanzi Writer quiz) | — |
+
+`zeichen` cards are **characters, not words**: one per distinct character of
+the active word items (sentence cards contribute none), in order of first
+appearance, so a course's characters arrive in course order. A character
+never seen before opens in a *study* state (stroke animation + breakdown,
+then trace over the outline) — you can't recall what you never learned.
+Reviews are written without an outline; "Antwort zeigen" mid-quiz animates it.
+The breakdown replaces the example sentence on these cards so they still fit
+a phone screen. `zeichen` is **off by default** (`DEFAULT_MODES`): switching it
+on silently would add ~140–220 cards to an existing deck.
+
+On every other card, the revealed hanzi are tappable (faint dotted underline):
+a tap opens that character's breakdown inline with a small looping stroke
+animation. Untouched, the card looks exactly as before — keep it opt-in.
 
 Two rules in code, `modeApplies()` and `answerFormat()`, and both are
 pedagogical rather than technical:
@@ -148,26 +198,50 @@ pedagogical rather than technical:
 - **`de2hz` is not offered for sentences** — writing a whole sentence in hanzi
   from a German prompt is a translation exercise well beyond HSK2/3.
 
-Deck size is therefore 78×3 + 20×2 = **274**, not 294. Anything that walks
-(item × mode) must filter through `modeApplies()` — queue building, stats, and
-the "keep practising" path all do.
+The deck is no longer fixed: it is the enabled *sources* × enabled modes.
+Sources (`SOURCE_CHIPS`, chips in the details panel, synced per user in
+`vocab.sources`): `hsk1`/`hsk2`/`hsk3` (bank words by level), `sent` (the
+sentence cards), and each user list. Default `hsk2, hsk3, sent` with the three
+original modes = 78×3 + 20×2 = **274**, exactly the deck from before. Anything
+that walks (item × mode) goes through `deckCards()` — queue building, stats,
+and the "keep practising" path all do — which applies `modeApplies()`.
 
 Audio is available in *every* mode by design — in `de2hz` it's a pronunciation
 hint, and whether to use it is the learner's call. Sessions **mix** modes
-rather than blocking by type; chips in the header toggle modes on/off (stored
-per-device in `localStorage`, not in synced progress) and the last enabled mode
-cannot be switched off. `NEW_PER_SESSION` (12) caps unseen cards per session —
-without it the first session would introduce all ~294.
+rather than blocking by type; chips in the details panel toggle modes on/off
+(stored per-device in `localStorage`, not in synced progress) and the last
+enabled mode cannot be switched off; likewise the last source. `NEW_PER_SESSION`
+(12) caps unseen cards per session — except for the **newest enabled list**,
+whose new cards all come at once: a lesson just added is what the learner
+wants to drill now. New Zeichen cards keep their order, interleaved with the
+shuffled new word cards.
 
 Leitner intervals (`INTERVAL_MS` in the code): box1 = 10 min, box2 = 1 day,
 box3 = 3 days, box4 = 7 days, box5 = 21 days. Grading "Nochmal" resets to
 box1 and reinserts the card ~4 cards later in the current session queue.
 "Gut" = +1 box, "Einfach" = +2 boxes (capped at 5).
 
-Vocab currently: 98 items (78 words split HSK2/HSK3, 20 sentences), hand
--picked from mandarinbean.com's HSK2/HSK3 (2.0-standard) lists. Extending the
-list is just appending objects to the `ITEMS` array — no other code changes
-needed.
+Vocab currently: 176 items — 78 HSK1 words (`h01`–`h78`), 78 HSK2/HSK3 words
+(`w01`–`w78`, hand-picked from mandarinbean.com's 2.0-standard lists), 20
+sentences. Extending the bank is appending to `ITEMS` plus an `EXAMPLES` entry
+— and a `CHARS` entry for every new character, or its Zeichen card has no
+breakdown.
+
+## User lists
+
+"＋ Liste" in the details panel creates a list (default name "Lektion n") and
+opens the editor in place of the card; "bearbeiten" opens the newest. Words
+come in through one paste box, parsed by `parsePaste()`: one word per line,
+hanzi + pinyin (tone marks, tone numbers → marks, or toneless) + German, and
+also OCR-style tables where hanzi, pinyin and German land on consecutive lines.
+Pinyin vs. German is decided by syllable count (`PINYIN_SYLLABLES`) matching
+the character count, falling back to tone-marked tokens. Everything goes to an
+editable preview first. A word that exists in the bank keeps the **bank id**,
+so it shares one progress history instead of being learned twice. Own words
+get `u…` ids; deleting a list prunes words no list references (their progress
+stays in the file, unscheduled). The intended "scanner" is the phone's own
+text recognition (Live Text / Google Lens) pasting into this box — no OCR in
+the app.
 
 ## Example sentences (`EXAMPLES`)
 
@@ -209,6 +283,10 @@ new colors/components ad hoc:
   rotated seal-stamp-style badge. Keep these motifs for any new input/tag UI.
   The old ruled-paper `textarea.grid-paper` rule is unused but kept as a
   reference for the ruled-line treatment.
+  `.hw-cell` is the same 米字格 for the stroke-checked Zeichen writing (guides
+  as a CSS background under Hanzi Writer's SVG; radicals render in seal red).
+  Character breakdowns (`.zi-note`) reuse the example sentence's seal-red
+  margin-note look.
 
 ## Conventions
 
@@ -217,7 +295,9 @@ new colors/components ad hoc:
 - Flat layout, no `/frontend` + `/backend` split: `index.html` and `server.js`
   sit next to each other. Keep it that way unless there's a real reason.
 - No dependencies, in either file. Both are stdlib/browser-only, which is why
-  there is no build step, no lockfile, and no install in the Dockerfile.
+  there is no build step, no lockfile, and no install in the Dockerfile. The
+  one exception is the pinned Hanzi Writer CDN script (see Tech stack), which
+  is optional at runtime.
 
 ## Security invariants
 
@@ -232,16 +312,17 @@ Only the things that are load-bearing and easy to break by accident:
   typically `SameSite=None`.
 - **Static files come from the `STATIC` whitelist, never from `url.pathname`.**
   Building a path from the request is how traversal gets in.
-- **`ITEMS` and `EXAMPLES` are trusted because they're hardcoded.** `showAnswer`
-  interpolates `hanzi`/`pinyin`/`meaning` from both straight into `innerHTML`
-  (the example block included). If vocab ever comes
-  from the API or user input, escape at those sites first — that's the one live
-  XSS sink in the app.
+- **Item text is escaped with `esc()` wherever it reaches `innerHTML`** —
+  prompt, tag, answer, example, character note, editor rows. Own words and list
+  names are user input synced through the server, so this is a live XSS sink
+  now, not a theoretical one. New render sites must use `esc()`; chip labels
+  use `textContent`. `validateVocab` caps shapes and sizes but deliberately
+  does not try to sanitise — escaping on output is the defence.
 - Progress data reaching the DOM must stay numeric-only (the `validateProgress`
   check enforces it server-side); it's currently used as array indices, not
   rendered as text.
 
-Cloudflare Access (One-time PIN, single allowed email) fronts the public
+Cloudflare Access (One-time PIN, allowed emails listed in the policy) fronts the public
 hostname — see DEPLOY.md. It does *not* cover the LAN: the container binds all
 interfaces so `cloudflared` can reach it, so anyone on the home network can
 read and write progress directly. Accepted for now; revisit if the app ever
@@ -256,7 +337,11 @@ Not addressed, deliberately: no rate limiting (single user behind Access), and
    day — reloading grants another 12. A real daily cap needs a persisted
    date+count; the progress API accepts extra fields, so a `__meta` entry
    would pass validation, but it's a hack worth thinking about first.
-3. Vocab expansion beyond the initial 98 items
+2. `CHARS` entries for characters that only occur in user lists (they show
+   stroke order but "Herkunft noch nicht erfasst").
+3. Vocab expansion beyond the current 176 items
+4. Offline cache in `localStorage` is per device, not per user: on a shared
+   device, the second user's offline fallback would read the first's cache.
 
 Done: backend sync + `Storage` swap; Docker/compose + tunnel docs
 (`tingxie.hannesspitz.de`).

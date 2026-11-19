@@ -133,6 +133,12 @@ set `TINGXIE_OWNER=h.spitz@outlook.de` in `.env` so the owner keeps the
 original `data/progress.json`; everyone else gets `data/users/<sha256>.json`
 automatically. Without `TINGXIE_OWNER`, the owner logging in through Access
 would start from an empty file (the old one is still there, just not used).
+Word lists live next to it: `data/vocab.json` for the owner,
+`data/users/<sha256>.vocab.json` for everyone else.
+
+The Zeichen mode loads Hanzi Writer and its stroke data from
+`cdn.jsdelivr.net` in the browser; nothing to set up server-side. If it is
+blocked, Zeichen cards fall back to freehand writing.
 
 Leave *Cloudflare One Client authentication* as it is; it authenticates WARP
 device sessions and is unrelated (it is not an identity provider, so toggling

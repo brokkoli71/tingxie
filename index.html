@@ -15,6 +15,9 @@
 <link rel="icon" href="/icons/icon-512.png" sizes="512x512" type="image/png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Stroke order + stroke-checked writing for the Zeichen mode. Pinned, and
+     async: the app works without it and falls back to the freehand canvas. -->
+<script async src="https://cdn.jsdelivr.net/npm/hanzi-writer@3.7.3/dist/hanzi-writer.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -459,6 +462,158 @@
   .grade-btn.good{ border-color: var(--ink); }
   .grade-btn.easy{ border-color: var(--jade); color: var(--jade); }
 
+
+  /* Two chip rows in the details panel need a word each to tell them apart. */
+  .chip-label{
+    font-family:"JetBrains Mono", monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 4px 0 6px;
+  }
+  /* Actions in a chip row (new list, edit) — dashed, so they don't read as
+     another source to toggle. */
+  .mode-chip.add{ opacity: 1; border-style: dashed; }
+
+  /* Zeichen prompt: the source word with the character blanked out. */
+  .prompt-zi{ margin: 6px 0 14px; }
+  .pz-word{
+    font-family:"Noto Serif SC", serif;
+    font-size: 40px;
+    line-height: 1.2;
+    letter-spacing: 0.06em;
+  }
+  .pz-py{
+    font-family:"JetBrains Mono", monospace;
+    font-size: 14px;
+    color: var(--seal-dark);
+    margin-top: 2px;
+  }
+  .pz-de{ font-size: 18px; margin-top: 2px; }
+  .pz-gloss{
+    font-family:"JetBrains Mono", monospace;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    margin-top: 4px;
+  }
+
+  /* Hanzi Writer cell: the same 米字格 as .write-cell, guides drawn as a
+     background so the writer's own SVG sits on top of them. */
+  .hw-cell{
+    width: 100%;
+    max-width: 300px;
+    aspect-ratio: 1 / 1;
+    margin: 0 auto;
+    border: 1.5px solid var(--seal);
+    border-radius: 6px;
+    background-color: #fffdf8;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M50 0V100M0 50H100M0 0L100 100M100 0L0 100' stroke='%23b9c3cf' stroke-width='1.6' stroke-dasharray='6 6' vector-effect='non-scaling-stroke' fill='none'/%3E%3C/svg%3E");
+    touch-action: none;
+    cursor: crosshair;
+  }
+  .hw-cell svg{ display:block; }
+  .hw-status{
+    font-family:"JetBrains Mono", monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-right: auto;
+  }
+
+  /* Tappable characters in a revealed answer. Faint on purpose: untouched,
+     the answer should look as it always did. */
+  .zi{
+    cursor: pointer;
+    border-bottom: 1.5px dotted rgba(179,53,42,0.4);
+  }
+  .zi.on{ color: var(--seal); border-bottom-color: var(--seal); }
+  #ziPanel .zi-note{ margin: 4px 0 14px; }
+
+  /* Character breakdown — a margin note like .example, optionally with a
+     small looping stroke animation beside it. */
+  .zi-note{ display:flex; gap: 12px; align-items:flex-start; }
+  .zi-note-body{ flex: 1; min-width: 0; }
+  .zi-anim{
+    flex: none;
+    width: 76px; height: 76px;
+    border: 1px solid rgba(179,53,42,0.35);
+    border-radius: 4px;
+    background: #fffdf8;
+  }
+  .zi-parts{
+    margin: 0 0 4px;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .zi-part b{
+    font-family:"Noto Serif SC", serif;
+    font-weight: 600;
+    font-size: 18px;
+  }
+  .zi-part i{
+    font-family:"JetBrains Mono", monospace;
+    font-style: normal;
+    font-size: 11.5px;
+    color: var(--seal-dark);
+  }
+  .zi-plus{ margin: 0 7px; color: var(--seal); }
+  .zi-answer .pinyin{ margin-bottom: 12px; }
+
+  /* List editor */
+  .ed-top{ display:flex; gap: 8px; margin: 4px 0 14px; }
+  .ed-select, .ed-name, .ed-in{
+    font-family:"Source Serif 4", Georgia, serif;
+    font-size: 16px; /* below 16px iOS zooms the page on focus */
+    color: var(--ink);
+    background: #fffdf8;
+    border: 1.5px solid var(--ink-soft);
+    border-radius: 6px;
+    padding: 7px 9px;
+    min-width: 0;
+  }
+  .ed-name{ flex: 1; }
+  .ed-select{ max-width: 45%; }
+  .ed-words{ list-style: none; margin: 0 0 16px; padding: 0; }
+  .ed-word{
+    display:flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px dashed var(--paper-line);
+  }
+  .ed-hz{ font-family:"Noto Serif SC", serif; font-size: 18px; flex: none; }
+  .ed-py{ font-family:"JetBrains Mono", monospace; font-size: 12.5px; color: var(--seal-dark); flex: none; }
+  .ed-de{ font-size: 14.5px; color: var(--ink-soft); flex: 1; min-width: 0; }
+  .ed-note{ font-family:"JetBrains Mono", monospace; font-size: 10.5px; font-style: normal; color: var(--jade); }
+  .ed-prev{ align-items: center; }
+  .ed-in{ font-size: 16px; padding: 5px 7px; }
+  .ed-in.ed-hz{ width: 5.5em; font-family:"Noto Serif SC", serif; }
+  .ed-in.ed-py{ width: 7em; font-family:"JetBrains Mono", monospace; font-size: 14px; }
+  .ed-in.ed-de{ flex: 1; }
+  .ed-x{
+    flex: none;
+    background: transparent;
+    border: none;
+    color: var(--seal);
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 4px;
+  }
+  .ed-empty{ color: var(--ink-soft); font-style: italic; padding: 6px 0; }
+  .ed-paste{ min-height: 80px; }
+  .ed-gap{ margin-top: 16px; }
+  .write-tool.ed-ok{ border-color: var(--jade); color: var(--jade); margin-left: auto; }
+  .ed-foot{ display:flex; gap: 10px; align-items:center; margin-top: 22px; }
+  .ed-foot .primary-btn{ flex: 1; }
+  .write-tool.ed-danger{ border-color: var(--seal); color: var(--seal-dark); }
+  @media (max-width: 640px){
+    .ed-prev{ flex-wrap: wrap; }
+    .ed-in.ed-de{ flex-basis: 100%; order: 3; }
+    .pz-word{ font-size: 34px; }
+    .hw-cell{ max-width: 230px; }
+  }
+
   .voice-warning{
     font-family:"JetBrains Mono", monospace;
     font-size: 12px;
@@ -545,6 +700,9 @@
   <!-- Set-once controls and status, collapsed so the card starts above the
        fold on a phone. -->
   <div class="details is-hidden" id="details">
+    <div class="chip-label">Wörter</div>
+    <div class="mode-chips" id="sourceChips"></div>
+    <div class="chip-label">Übungen</div>
     <div class="mode-chips" id="modeChips"></div>
     <div class="boxes" id="boxes"></div>
     <div class="detail-stats" id="detailStats"></div>
@@ -557,11 +715,91 @@
 
   <div class="card" id="card"></div>
 
-  <footer class="page-footer">Fortschritt wird auf deinem Server gespeichert und über alle Geräte synchronisiert · Wörter aus HSK2/3, Sätze auf HSK1-Niveau (ungefähre Einstufung)</footer>
+  <footer class="page-footer">Fortschritt wird auf deinem Server gespeichert und über alle Geräte synchronisiert · Wörter aus HSK1–3 und eigenen Listen (ungefähre Einstufung) · Strichfolgen: Make Me a Hanzi / Hanzi Writer</footer>
 </div>
 
 <script>
 const ITEMS = [
+  // HSK1 — Wörter. Für den Einstieg; Zeichen-Herkunft steht in CHARS.
+  {id:'h01',hanzi:'你',pinyin:'nǐ',meaning:'du',level:1,type:'word'},
+  {id:'h02',hanzi:'我',pinyin:'wǒ',meaning:'ich',level:1,type:'word'},
+  {id:'h03',hanzi:'他',pinyin:'tā',meaning:'er',level:1,type:'word'},
+  {id:'h04',hanzi:'她',pinyin:'tā',meaning:'sie (Einzahl)',level:1,type:'word'},
+  {id:'h05',hanzi:'好',pinyin:'hǎo',meaning:'gut',level:1,type:'word'},
+  {id:'h06',hanzi:'人',pinyin:'rén',meaning:'Mensch, Person',level:1,type:'word'},
+  {id:'h07',hanzi:'大',pinyin:'dà',meaning:'groß',level:1,type:'word'},
+  {id:'h08',hanzi:'小',pinyin:'xiǎo',meaning:'klein',level:1,type:'word'},
+  {id:'h09',hanzi:'中国',pinyin:'Zhōngguó',meaning:'China',level:1,type:'word'},
+  {id:'h10',hanzi:'一',pinyin:'yī',meaning:'eins',level:1,type:'word'},
+  {id:'h11',hanzi:'二',pinyin:'èr',meaning:'zwei',level:1,type:'word'},
+  {id:'h12',hanzi:'三',pinyin:'sān',meaning:'drei',level:1,type:'word'},
+  {id:'h13',hanzi:'十',pinyin:'shí',meaning:'zehn',level:1,type:'word'},
+  {id:'h14',hanzi:'上',pinyin:'shàng',meaning:'oben, auf',level:1,type:'word'},
+  {id:'h15',hanzi:'下',pinyin:'xià',meaning:'unten, unter',level:1,type:'word'},
+  {id:'h16',hanzi:'水',pinyin:'shuǐ',meaning:'Wasser',level:1,type:'word'},
+  {id:'h17',hanzi:'米饭',pinyin:'mǐfàn',meaning:'(gekochter) Reis',level:1,type:'word'},
+  {id:'h18',hanzi:'吃',pinyin:'chī',meaning:'essen',level:1,type:'word'},
+  {id:'h19',hanzi:'喝',pinyin:'hē',meaning:'trinken',level:1,type:'word'},
+  {id:'h20',hanzi:'茶',pinyin:'chá',meaning:'Tee',level:1,type:'word'},
+  {id:'h21',hanzi:'看',pinyin:'kàn',meaning:'sehen, schauen, lesen',level:1,type:'word'},
+  {id:'h22',hanzi:'听',pinyin:'tīng',meaning:'hören, zuhören',level:1,type:'word'},
+  {id:'h23',hanzi:'说',pinyin:'shuō',meaning:'sprechen, sagen',level:1,type:'word'},
+  {id:'h24',hanzi:'写',pinyin:'xiě',meaning:'schreiben',level:1,type:'word'},
+  {id:'h25',hanzi:'字',pinyin:'zì',meaning:'Schriftzeichen',level:1,type:'word'},
+  {id:'h26',hanzi:'名字',pinyin:'míngzi',meaning:'Name',level:1,type:'word'},
+  {id:'h27',hanzi:'叫',pinyin:'jiào',meaning:'heißen; rufen',level:1,type:'word'},
+  {id:'h28',hanzi:'妈妈',pinyin:'māma',meaning:'Mama, Mutter',level:1,type:'word'},
+  {id:'h29',hanzi:'爸爸',pinyin:'bàba',meaning:'Papa, Vater',level:1,type:'word'},
+  {id:'h30',hanzi:'儿子',pinyin:'érzi',meaning:'Sohn',level:1,type:'word'},
+  {id:'h31',hanzi:'女儿',pinyin:'nǚ\'ér',meaning:'Tochter',level:1,type:'word'},
+  {id:'h32',hanzi:'朋友',pinyin:'péngyou',meaning:'Freund, Freundin',level:1,type:'word'},
+  {id:'h33',hanzi:'老师',pinyin:'lǎoshī',meaning:'Lehrer, Lehrerin',level:1,type:'word'},
+  {id:'h34',hanzi:'学生',pinyin:'xuésheng',meaning:'Schüler, Student',level:1,type:'word'},
+  {id:'h35',hanzi:'学习',pinyin:'xuéxí',meaning:'lernen',level:1,type:'word'},
+  {id:'h36',hanzi:'家',pinyin:'jiā',meaning:'Familie, Zuhause',level:1,type:'word'},
+  {id:'h37',hanzi:'今天',pinyin:'jīntiān',meaning:'heute',level:1,type:'word'},
+  {id:'h38',hanzi:'明天',pinyin:'míngtiān',meaning:'morgen',level:1,type:'word'},
+  {id:'h39',hanzi:'昨天',pinyin:'zuótiān',meaning:'gestern',level:1,type:'word'},
+  {id:'h40',hanzi:'月',pinyin:'yuè',meaning:'Monat; Mond',level:1,type:'word'},
+  {id:'h41',hanzi:'年',pinyin:'nián',meaning:'Jahr',level:1,type:'word'},
+  {id:'h42',hanzi:'星期',pinyin:'xīngqī',meaning:'Woche',level:1,type:'word'},
+  {id:'h43',hanzi:'天气',pinyin:'tiānqì',meaning:'Wetter',level:1,type:'word'},
+  {id:'h44',hanzi:'下雨',pinyin:'xià yǔ',meaning:'regnen',level:1,type:'word'},
+  {id:'h45',hanzi:'热',pinyin:'rè',meaning:'heiß',level:1,type:'word'},
+  {id:'h46',hanzi:'冷',pinyin:'lěng',meaning:'kalt',level:1,type:'word'},
+  {id:'h47',hanzi:'猫',pinyin:'māo',meaning:'Katze',level:1,type:'word'},
+  {id:'h48',hanzi:'狗',pinyin:'gǒu',meaning:'Hund',level:1,type:'word'},
+  {id:'h49',hanzi:'苹果',pinyin:'píngguǒ',meaning:'Apfel',level:1,type:'word'},
+  {id:'h50',hanzi:'书',pinyin:'shū',meaning:'Buch',level:1,type:'word'},
+  {id:'h51',hanzi:'钱',pinyin:'qián',meaning:'Geld',level:1,type:'word'},
+  {id:'h52',hanzi:'买',pinyin:'mǎi',meaning:'kaufen',level:1,type:'word'},
+  {id:'h53',hanzi:'来',pinyin:'lái',meaning:'kommen',level:1,type:'word'},
+  {id:'h54',hanzi:'去',pinyin:'qù',meaning:'(hin)gehen',level:1,type:'word'},
+  {id:'h55',hanzi:'回',pinyin:'huí',meaning:'zurückkehren',level:1,type:'word'},
+  {id:'h56',hanzi:'坐',pinyin:'zuò',meaning:'sitzen; (Verkehrsmittel) nehmen',level:1,type:'word'},
+  {id:'h57',hanzi:'住',pinyin:'zhù',meaning:'wohnen',level:1,type:'word'},
+  {id:'h58',hanzi:'爱',pinyin:'ài',meaning:'lieben',level:1,type:'word'},
+  {id:'h59',hanzi:'喜欢',pinyin:'xǐhuan',meaning:'mögen, gern haben',level:1,type:'word'},
+  {id:'h60',hanzi:'谢谢',pinyin:'xièxie',meaning:'danke',level:1,type:'word'},
+  {id:'h61',hanzi:'再见',pinyin:'zàijiàn',meaning:'auf Wiedersehen',level:1,type:'word'},
+  {id:'h62',hanzi:'医生',pinyin:'yīshēng',meaning:'Arzt, Ärztin',level:1,type:'word'},
+  {id:'h63',hanzi:'飞机',pinyin:'fēijī',meaning:'Flugzeug',level:1,type:'word'},
+  {id:'h64',hanzi:'电脑',pinyin:'diànnǎo',meaning:'Computer',level:1,type:'word'},
+  {id:'h65',hanzi:'衣服',pinyin:'yīfu',meaning:'Kleidung',level:1,type:'word'},
+  {id:'h66',hanzi:'桌子',pinyin:'zhuōzi',meaning:'Tisch',level:1,type:'word'},
+  {id:'h67',hanzi:'多',pinyin:'duō',meaning:'viel',level:1,type:'word'},
+  {id:'h68',hanzi:'少',pinyin:'shǎo',meaning:'wenig',level:1,type:'word'},
+  {id:'h69',hanzi:'什么',pinyin:'shénme',meaning:'was',level:1,type:'word'},
+  {id:'h70',hanzi:'谁',pinyin:'shéi',meaning:'wer',level:1,type:'word'},
+  {id:'h71',hanzi:'哪儿',pinyin:'nǎr',meaning:'wo',level:1,type:'word'},
+  {id:'h72',hanzi:'现在',pinyin:'xiànzài',meaning:'jetzt',level:1,type:'word'},
+  {id:'h73',hanzi:'中午',pinyin:'zhōngwǔ',meaning:'Mittag',level:1,type:'word'},
+  {id:'h74',hanzi:'商店',pinyin:'shāngdiàn',meaning:'Geschäft, Laden',level:1,type:'word'},
+  {id:'h75',hanzi:'不',pinyin:'bù',meaning:'nicht',level:1,type:'word'},
+  {id:'h76',hanzi:'是',pinyin:'shì',meaning:'sein (ist, bin …)',level:1,type:'word'},
+  {id:'h77',hanzi:'有',pinyin:'yǒu',meaning:'haben; es gibt',level:1,type:'word'},
+  {id:'h78',hanzi:'在',pinyin:'zài',meaning:'sich befinden, in',level:1,type:'word'},
+
   // HSK2 — Wörter
   {id:'w01',hanzi:'大家',pinyin:'dàjiā',meaning:'alle (Personen)',level:2,type:'word'},
   {id:'w02',hanzi:'为什么',pinyin:'wèishénme',meaning:'warum',level:2,type:'word'},
@@ -752,7 +990,316 @@ const EXAMPLES = {
   w76:{hanzi:'我经常去那个饭馆。',pinyin:'Wǒ jīngcháng qù nàge fànguǎn.',meaning:'Ich gehe oft in dieses Restaurant.'},
   w77:{hanzi:'我决定去中国。',pinyin:'Wǒ juédìng qù Zhōngguó.',meaning:'Ich habe entschieden, nach China zu gehen.'},
   w78:{hanzi:'我不太了解他。',pinyin:'Wǒ bú tài liǎojiě tā.',meaning:'Ich kenne ihn nicht besonders gut.'},
+  h01:{hanzi:'你是老师吗?',pinyin:'Nǐ shì lǎoshī ma?',meaning:'Bist du Lehrer?'},
+  h02:{hanzi:'我是学生。',pinyin:'Wǒ shì xuésheng.',meaning:'Ich bin Student.'},
+  h03:{hanzi:'他是我朋友。',pinyin:'Tā shì wǒ péngyou.',meaning:'Er ist mein Freund.'},
+  h04:{hanzi:'她是我妈妈。',pinyin:'Tā shì wǒ māma.',meaning:'Sie ist meine Mutter.'},
+  h05:{hanzi:'你好吗?',pinyin:'Nǐ hǎo ma?',meaning:'Wie geht es dir?'},
+  h06:{hanzi:'他是中国人。',pinyin:'Tā shì Zhōngguó rén.',meaning:'Er ist Chinese.'},
+  h07:{hanzi:'这个苹果很大。',pinyin:'Zhège píngguǒ hěn dà.',meaning:'Dieser Apfel ist groß.'},
+  h08:{hanzi:'我的猫很小。',pinyin:'Wǒ de māo hěn xiǎo.',meaning:'Meine Katze ist klein.'},
+  h09:{hanzi:'我想去中国。',pinyin:'Wǒ xiǎng qù Zhōngguó.',meaning:'Ich möchte nach China.'},
+  h10:{hanzi:'我有一个儿子。',pinyin:'Wǒ yǒu yí ge érzi.',meaning:'Ich habe einen Sohn.'},
+  h11:{hanzi:'今天是二月一号。',pinyin:'Jīntiān shì èr yuè yī hào.',meaning:'Heute ist der 1. Februar.'},
+  h12:{hanzi:'我有三本书。',pinyin:'Wǒ yǒu sān běn shū.',meaning:'Ich habe drei Bücher.'},
+  h13:{hanzi:'她十岁。',pinyin:'Tā shí suì.',meaning:'Sie ist zehn Jahre alt.'},
+  h14:{hanzi:'书在桌子上。',pinyin:'Shū zài zhuōzi shang.',meaning:'Das Buch liegt auf dem Tisch.'},
+  h15:{hanzi:'猫在桌子下面。',pinyin:'Māo zài zhuōzi xiàmian.',meaning:'Die Katze ist unter dem Tisch.'},
+  h16:{hanzi:'我想喝水。',pinyin:'Wǒ xiǎng hē shuǐ.',meaning:'Ich möchte Wasser trinken.'},
+  h17:{hanzi:'我喜欢吃米饭。',pinyin:'Wǒ xǐhuan chī mǐfàn.',meaning:'Ich esse gern Reis.'},
+  h18:{hanzi:'你想吃什么?',pinyin:'Nǐ xiǎng chī shénme?',meaning:'Was möchtest du essen?'},
+  h19:{hanzi:'我不喝茶。',pinyin:'Wǒ bù hē chá.',meaning:'Ich trinke keinen Tee.'},
+  h20:{hanzi:'中国茶很好喝。',pinyin:'Zhōngguó chá hěn hǎohē.',meaning:'Chinesischer Tee schmeckt gut.'},
+  h21:{hanzi:'我在看书。',pinyin:'Wǒ zài kàn shū.',meaning:'Ich lese gerade ein Buch.'},
+  h22:{hanzi:'你听,下雨了。',pinyin:'Nǐ tīng, xià yǔ le.',meaning:'Hör mal, es regnet.'},
+  h23:{hanzi:'老师说汉语。',pinyin:'Lǎoshī shuō Hànyǔ.',meaning:'Die Lehrerin spricht Chinesisch.'},
+  h24:{hanzi:'你会写这个字吗?',pinyin:'Nǐ huì xiě zhège zì ma?',meaning:'Kannst du dieses Zeichen schreiben?'},
+  h25:{hanzi:'这是什么字?',pinyin:'Zhè shì shénme zì?',meaning:'Was ist das für ein Zeichen?'},
+  h26:{hanzi:'你叫什么名字?',pinyin:'Nǐ jiào shénme míngzi?',meaning:'Wie heißt du?'},
+  h27:{hanzi:'我叫小明。',pinyin:'Wǒ jiào Xiǎomíng.',meaning:'Ich heiße Xiaoming.'},
+  h28:{hanzi:'我妈妈是医生。',pinyin:'Wǒ māma shì yīshēng.',meaning:'Meine Mutter ist Ärztin.'},
+  h29:{hanzi:'我爸爸在家。',pinyin:'Wǒ bàba zài jiā.',meaning:'Mein Vater ist zu Hause.'},
+  h30:{hanzi:'他儿子三岁。',pinyin:'Tā érzi sān suì.',meaning:'Sein Sohn ist drei.'},
+  h31:{hanzi:'她女儿很漂亮。',pinyin:'Tā nǚ\'ér hěn piàoliang.',meaning:'Ihre Tochter ist sehr hübsch.'},
+  h32:{hanzi:'他是我的好朋友。',pinyin:'Tā shì wǒ de hǎo péngyou.',meaning:'Er ist ein guter Freund von mir.'},
+  h33:{hanzi:'我们的老师是中国人。',pinyin:'Wǒmen de lǎoshī shì Zhōngguó rén.',meaning:'Unsere Lehrerin ist Chinesin.'},
+  h34:{hanzi:'他们都是学生。',pinyin:'Tāmen dōu shì xuésheng.',meaning:'Sie sind alle Studenten.'},
+  h35:{hanzi:'我学习汉语。',pinyin:'Wǒ xuéxí Hànyǔ.',meaning:'Ich lerne Chinesisch.'},
+  h36:{hanzi:'我家有四个人。',pinyin:'Wǒ jiā yǒu sì ge rén.',meaning:'In meiner Familie sind wir zu viert.'},
+  h37:{hanzi:'今天很热。',pinyin:'Jīntiān hěn rè.',meaning:'Heute ist es heiß.'},
+  h38:{hanzi:'明天见!',pinyin:'Míngtiān jiàn!',meaning:'Bis morgen!'},
+  h39:{hanzi:'昨天下雨了。',pinyin:'Zuótiān xià yǔ le.',meaning:'Gestern hat es geregnet.'},
+  h40:{hanzi:'我八月去中国。',pinyin:'Wǒ bā yuè qù Zhōngguó.',meaning:'Im August fahre ich nach China.'},
+  h41:{hanzi:'我学习汉语一年了。',pinyin:'Wǒ xuéxí Hànyǔ yì nián le.',meaning:'Ich lerne seit einem Jahr Chinesisch.'},
+  h42:{hanzi:'今天星期几?',pinyin:'Jīntiān xīngqī jǐ?',meaning:'Welcher Wochentag ist heute?'},
+  h43:{hanzi:'今天天气很好。',pinyin:'Jīntiān tiānqì hěn hǎo.',meaning:'Heute ist schönes Wetter.'},
+  h44:{hanzi:'明天会下雨。',pinyin:'Míngtiān huì xià yǔ.',meaning:'Morgen wird es regnen.'},
+  h45:{hanzi:'今天太热了。',pinyin:'Jīntiān tài rè le.',meaning:'Heute ist es zu heiß.'},
+  h46:{hanzi:'北京很冷。',pinyin:'Běijīng hěn lěng.',meaning:'In Peking ist es kalt.'},
+  h47:{hanzi:'我喜欢猫。',pinyin:'Wǒ xǐhuan māo.',meaning:'Ich mag Katzen.'},
+  h48:{hanzi:'那是谁的狗?',pinyin:'Nà shì shéi de gǒu?',meaning:'Wem gehört der Hund?'},
+  h49:{hanzi:'我想买苹果。',pinyin:'Wǒ xiǎng mǎi píngguǒ.',meaning:'Ich möchte Äpfel kaufen.'},
+  h50:{hanzi:'这本书是我的。',pinyin:'Zhè běn shū shì wǒ de.',meaning:'Dieses Buch gehört mir.'},
+  h51:{hanzi:'我没有钱。',pinyin:'Wǒ méiyǒu qián.',meaning:'Ich habe kein Geld.'},
+  h52:{hanzi:'你买什么?',pinyin:'Nǐ mǎi shénme?',meaning:'Was kaufst du?'},
+  h53:{hanzi:'他明天来我家。',pinyin:'Tā míngtiān lái wǒ jiā.',meaning:'Er kommt morgen zu mir.'},
+  h54:{hanzi:'你去哪儿?',pinyin:'Nǐ qù nǎr?',meaning:'Wohin gehst du?'},
+  h55:{hanzi:'我想回家。',pinyin:'Wǒ xiǎng huí jiā.',meaning:'Ich will nach Hause.'},
+  h56:{hanzi:'请坐!',pinyin:'Qǐng zuò!',meaning:'Bitte setz dich!'},
+  h57:{hanzi:'你住在哪儿?',pinyin:'Nǐ zhù zài nǎr?',meaning:'Wo wohnst du?'},
+  h58:{hanzi:'我爱我的家。',pinyin:'Wǒ ài wǒ de jiā.',meaning:'Ich liebe meine Familie.'},
+  h59:{hanzi:'我喜欢喝茶。',pinyin:'Wǒ xǐhuan hē chá.',meaning:'Ich trinke gern Tee.'},
+  h60:{hanzi:'谢谢你!',pinyin:'Xièxie nǐ!',meaning:'Danke dir!'},
+  h61:{hanzi:'再见,明天见!',pinyin:'Zàijiàn, míngtiān jiàn!',meaning:'Tschüss, bis morgen!'},
+  h62:{hanzi:'她是医生。',pinyin:'Tā shì yīshēng.',meaning:'Sie ist Ärztin.'},
+  h63:{hanzi:'我坐飞机去北京。',pinyin:'Wǒ zuò fēijī qù Běijīng.',meaning:'Ich fliege nach Peking.'},
+  h64:{hanzi:'这是我的电脑。',pinyin:'Zhè shì wǒ de diànnǎo.',meaning:'Das ist mein Computer.'},
+  h65:{hanzi:'我想买衣服。',pinyin:'Wǒ xiǎng mǎi yīfu.',meaning:'Ich möchte Kleidung kaufen.'},
+  h66:{hanzi:'桌子上有一本书。',pinyin:'Zhuōzi shang yǒu yì běn shū.',meaning:'Auf dem Tisch liegt ein Buch.'},
+  h67:{hanzi:'他有很多书。',pinyin:'Tā yǒu hěn duō shū.',meaning:'Er hat viele Bücher.'},
+  h68:{hanzi:'我的钱很少。',pinyin:'Wǒ de qián hěn shǎo.',meaning:'Ich habe wenig Geld.'},
+  h69:{hanzi:'这是什么?',pinyin:'Zhè shì shénme?',meaning:'Was ist das?'},
+  h70:{hanzi:'他是谁?',pinyin:'Tā shì shéi?',meaning:'Wer ist er?'},
+  h71:{hanzi:'你家在哪儿?',pinyin:'Nǐ jiā zài nǎr?',meaning:'Wo wohnst du?'},
+  h72:{hanzi:'现在几点?',pinyin:'Xiànzài jǐ diǎn?',meaning:'Wie spät ist es jetzt?'},
+  h73:{hanzi:'中午我们吃米饭。',pinyin:'Zhōngwǔ wǒmen chī mǐfàn.',meaning:'Mittags essen wir Reis.'},
+  h74:{hanzi:'商店里人很多。',pinyin:'Shāngdiàn li rén hěn duō.',meaning:'Im Laden sind viele Leute.'},
+  h75:{hanzi:'我不是老师。',pinyin:'Wǒ bú shì lǎoshī.',meaning:'Ich bin kein Lehrer.'},
+  h76:{hanzi:'这是我的书。',pinyin:'Zhè shì wǒ de shū.',meaning:'Das ist mein Buch.'},
+  h77:{hanzi:'我有一个女儿。',pinyin:'Wǒ yǒu yí ge nǚ\'ér.',meaning:'Ich habe eine Tochter.'},
+  h78:{hanzi:'妈妈在家。',pinyin:'Māma zài jiā.',meaning:'Mama ist zu Hause.'},
 };
+
+// Zeichen-Steckbriefe: Bestandteile und Herkunft jedes Zeichens der Wortbank.
+// kind: Bildzeichen (Piktogramm) / Sinnzeichen (aus Bedeutungsteilen
+// zusammengesetzt) / Laut-Sinn-Zeichen (Bedeutungsteil + Lautteil) / Symbol.
+// Fehlt kind, ist die Herkunft umstritten. parts: [Bestandteil, Bedeutung,
+// optional Lesung des Lautteils]. Quelle: Make Me a Hanzi, geprüft und
+// verbreitete Volksetymologien bewusst ausgelassen — lieber "umstritten" als
+// eine schöne, falsche Geschichte. Trusted like ITEMS: hardcoded, never input.
+const CHARS = {
+  "你":{"py": "nǐ", "de": "du", "kind": "Laut-Sinn-Zeichen", "parts": [["亻", "Mensch"], ["尔", "altes Wort für „du“", "ěr"]], "story": "Das alte Wort 尔 für „du“ bekam den Menschen 亻 dazu."},
+  "我":{"py": "wǒ", "de": "ich", "kind": "Bildzeichen", "story": "Ursprünglich das Bild einer gezackten Stangenwaffe; als „ich“ nur wegen des Klangs entlehnt."},
+  "他":{"py": "tā", "de": "er", "kind": "Laut-Sinn-Zeichen", "parts": [["亻", "Mensch"], ["也", "Lautteil", "yě"]], "story": "Mensch 亻 + 也 als Lautteil; ursprünglich „der andere“."},
+  "她":{"py": "tā", "de": "sie", "kind": "Laut-Sinn-Zeichen", "parts": [["女", "Frau"], ["也", "Lautteil", "yě"]], "story": "Erst um 1920 erfunden: 他 mit Frau 女 statt Mensch 亻."},
+  "好":{"py": "hǎo", "de": "gut", "kind": "Sinnzeichen", "parts": [["女", "Frau"], ["子", "Kind"]], "story": "Eine Frau 女 mit ihrem Kind 子 – das Bild für „gut“."},
+  "人":{"py": "rén", "de": "Mensch", "kind": "Bildzeichen", "story": "Ein Mensch von der Seite, im Schritt."},
+  "大":{"py": "dà", "de": "groß", "kind": "Bildzeichen", "story": "Ein Mensch mit weit ausgebreiteten Armen und Beinen – groß."},
+  "小":{"py": "xiǎo", "de": "klein", "kind": "Bildzeichen", "story": "Drei kleine Punkte oder Körnchen – klein."},
+  "中":{"py": "zhōng", "de": "Mitte", "kind": "Symbol", "parts": [["口", "Rahmen"], ["丨", "Strich"]], "story": "Ein Strich 丨 mitten durch einen Rahmen 口 – die Mitte."},
+  "国":{"py": "guó", "de": "Land", "kind": "Sinnzeichen", "parts": [["囗", "Grenze, Umrandung"], ["玉", "Jade, Schatz"]], "story": "Ein Schatz 玉 innerhalb der Landesgrenze 囗 (vereinfacht, früher 國)."},
+  "一":{"py": "yī", "de": "eins", "kind": "Symbol", "story": "Ein Strich – eins."},
+  "二":{"py": "èr", "de": "zwei", "kind": "Symbol", "story": "Zwei Striche – zwei."},
+  "三":{"py": "sān", "de": "drei", "kind": "Symbol", "story": "Drei Striche – drei."},
+  "十":{"py": "shí", "de": "zehn", "kind": "Symbol", "story": "Früher ein senkrechter Strich, später mit Querstrich – zehn."},
+  "上":{"py": "shàng", "de": "oben, auf", "kind": "Symbol", "story": "Ein kurzer Strich über der Grundlinie – oben."},
+  "下":{"py": "xià", "de": "unten", "kind": "Symbol", "story": "Ein kurzer Strich unter der Linie – unten."},
+  "水":{"py": "shuǐ", "de": "Wasser", "kind": "Bildzeichen", "story": "Ein Strom in der Mitte, Spritzer links und rechts – Wasser."},
+  "米":{"py": "mǐ", "de": "Reis", "kind": "Bildzeichen", "story": "Reiskörner, durch einen Strich voneinander getrennt."},
+  "饭":{"py": "fàn", "de": "Essen, Mahlzeit", "kind": "Laut-Sinn-Zeichen", "parts": [["饣", "Essen"], ["反", "Lautteil", "fǎn"]], "story": "Essen 饣 + 反 fǎn für den Klang."},
+  "吃":{"py": "chī", "de": "essen", "kind": "Laut-Sinn-Zeichen", "parts": [["口", "Mund"], ["乞", "Lautteil", "qǐ"]], "story": "Mund 口 + 乞 qǐ für den Klang."},
+  "喝":{"py": "hē", "de": "trinken", "kind": "Laut-Sinn-Zeichen", "parts": [["口", "Mund"], ["曷", "Lautteil", "hé"]], "story": "Mund 口 + 曷 hé für den Klang."},
+  "茶":{"py": "chá", "de": "Tee", "kind": "Laut-Sinn-Zeichen", "parts": [["艹", "Pflanze"], ["人", "Mensch"], ["木", "Baum"]], "story": "Abgewandelt aus 荼 tú, dem Namen eines Bitterkrauts; 艹 zeigt die Pflanze."},
+  "看":{"py": "kàn", "de": "sehen, schauen", "kind": "Sinnzeichen", "parts": [["手", "Hand"], ["目", "Auge"]], "story": "Die Hand 手 über den Augen 目 – Ausschau halten."},
+  "听":{"py": "tīng", "de": "hören", "kind": "Laut-Sinn-Zeichen", "parts": [["口", "Mund"], ["斤", "Lautteil", "jīn"]], "story": "Vereinfachte Form von 聽, das noch das Ohr 耳 enthielt."},
+  "说":{"py": "shuō", "de": "sprechen", "kind": "Laut-Sinn-Zeichen", "parts": [["讠", "Sprache"], ["兑", "Lautteil", "duì"]], "story": "Sprache 讠 + 兑 als Lautteil."},
+  "写":{"py": "xiě", "de": "schreiben", "kind": "Laut-Sinn-Zeichen", "parts": [["冖", "Dach"], ["与", "vereinfachter Lautteil"]], "story": "Vereinfacht aus 寫: Dach 宀 + 舄 xì als Lautteil."},
+  "字":{"py": "zì", "de": "Schriftzeichen", "kind": "Laut-Sinn-Zeichen", "parts": [["宀", "Dach"], ["子", "Kind", "zǐ"]], "story": "Ein Kind 子 unter dem Dach 宀; 子 gibt auch den Klang."},
+  "名":{"py": "míng", "de": "Name", "kind": "Sinnzeichen", "parts": [["夕", "Abend"], ["口", "Mund"]], "story": "Am Abend 夕 sieht man niemanden – man ruft 口 den Namen."},
+  "叫":{"py": "jiào", "de": "rufen, heißen", "kind": "Laut-Sinn-Zeichen", "parts": [["口", "Mund"], ["丩", "Lautteil", "jiū"]], "story": "Mund 口 + 丩 für den Klang."},
+  "妈":{"py": "mā", "de": "Mama", "kind": "Laut-Sinn-Zeichen", "parts": [["女", "Frau"], ["马", "Pferd", "mǎ"]], "story": "Frau 女 + Pferd 马 – das Pferd steht nur für den Klang mǎ."},
+  "爸":{"py": "bà", "de": "Papa", "kind": "Laut-Sinn-Zeichen", "parts": [["父", "Vater"], ["巴", "Lautteil", "bā"]], "story": "Vater 父 + 巴 bā für den Klang."},
+  "儿":{"py": "ér", "de": "Kind, Sohn", "kind": "Bildzeichen", "story": "Vereinfacht aus 兒: ein Kleinkind mit noch offener Schädeldecke."},
+  "子":{"py": "zǐ", "de": "Kind", "kind": "Bildzeichen", "story": "Ein Kleinkind mit ausgestreckten Armen, die Beine eingewickelt."},
+  "女":{"py": "nǚ", "de": "Frau", "kind": "Bildzeichen", "story": "Eine kniende Frau mit vor der Brust gekreuzten Armen."},
+  "朋":{"py": "péng", "de": "Freund", "kind": "Bildzeichen", "story": "Ursprünglich zwei Schnüre mit Muscheln (altes Geld) – nicht zwei Monde."},
+  "友":{"py": "yǒu", "de": "Freund", "kind": "Sinnzeichen", "parts": [["又", "Hand"]], "story": "Zwei rechte Hände nebeneinander – Freunde, die einander helfen."},
+  "老":{"py": "lǎo", "de": "alt", "kind": "Bildzeichen", "parts": [["耂", "alt (Kopfteil)"], ["匕", "Stock"]], "story": "Ein alter Mensch mit langem Haar, gestützt auf einen Stock."},
+  "师":{"py": "shī", "de": "Lehrer, Meister", "story": "Vereinfacht aus 師; ursprünglich „Heer, Truppe“, später „Lehrmeister“."},
+  "学":{"py": "xué", "de": "lernen", "kind": "Sinnzeichen", "parts": [["⺍", "Hände (vereinfacht)"], ["冖", "Dach"], ["子", "Kind"]], "story": "Vereinfacht aus 學: Hände über einem Kind 子 unter einem Dach – Unterricht."},
+  "生":{"py": "shēng", "de": "wachsen, geboren werden", "kind": "Bildzeichen", "parts": [["土", "Erde"]], "story": "Ein Spross wächst aus der Erde 土."},
+  "习":{"py": "xí", "de": "üben", "kind": "Sinnzeichen", "story": "Vereinfacht aus 習 mit Flügeln 羽 – ein junger Vogel übt das Fliegen."},
+  "家":{"py": "jiā", "de": "Familie, Zuhause", "kind": "Sinnzeichen", "parts": [["宀", "Dach"], ["豕", "Schwein"]], "story": "Ein Schwein 豕 unter dem Dach 宀 – Haus und Hof."},
+  "今":{"py": "jīn", "de": "jetzt, heute", "story": "Herkunft umstritten."},
+  "天":{"py": "tiān", "de": "Himmel, Tag", "kind": "Bildzeichen", "parts": [["一", "Kopf"], ["大", "Mensch"]], "story": "Ein Mensch 大 mit betontem Kopf – das Obere, der Himmel."},
+  "明":{"py": "míng", "de": "hell", "kind": "Sinnzeichen", "parts": [["日", "Sonne"], ["月", "Mond"]], "story": "Sonne 日 und Mond 月 zusammen – hell."},
+  "昨":{"py": "zuó", "de": "gestern", "kind": "Laut-Sinn-Zeichen", "parts": [["日", "Tag"], ["乍", "Lautteil", "zhà"]], "story": "Tag 日 + 乍 für den Klang."},
+  "月":{"py": "yuè", "de": "Mond, Monat", "kind": "Bildzeichen", "story": "Eine Mondsichel."},
+  "年":{"py": "nián", "de": "Jahr", "kind": "Sinnzeichen", "story": "Ursprünglich ein Mensch, der Getreide trägt – die jährliche Ernte."},
+  "星":{"py": "xīng", "de": "Stern", "kind": "Laut-Sinn-Zeichen", "parts": [["日", "Sonne, Gestirn"], ["生", "Lautteil", "shēng"]], "story": "Früher kleine Sterne über 生; heute 日 + 生 als Lautteil."},
+  "期":{"py": "qī", "de": "Zeitraum", "kind": "Laut-Sinn-Zeichen", "parts": [["月", "Mond"], ["其", "Lautteil", "qí"]], "story": "Mond 月 (Zeitmaß) + 其 für den Klang."},
+  "气":{"py": "qì", "de": "Luft, Dampf", "kind": "Bildzeichen", "story": "Aufsteigende Dampf- oder Wolkenschwaden."},
+  "雨":{"py": "yǔ", "de": "Regen", "kind": "Bildzeichen", "story": "Regentropfen, die aus einer Wolke fallen."},
+  "热":{"py": "rè", "de": "heiß", "kind": "Laut-Sinn-Zeichen", "parts": [["灬", "Feuer"], ["执", "Lautteil", "zhí"]], "story": "Feuer 灬 + 执 als Lautteil."},
+  "冷":{"py": "lěng", "de": "kalt", "kind": "Laut-Sinn-Zeichen", "parts": [["冫", "Eis"], ["令", "Lautteil", "lìng"]], "story": "Eis 冫 + 令 für den Klang."},
+  "猫":{"py": "māo", "de": "Katze", "kind": "Laut-Sinn-Zeichen", "parts": [["犭", "Tier"], ["苗", "Lautteil", "miáo"]], "story": "Tier 犭 + 苗 miáo – klingt fast wie Miauen."},
+  "狗":{"py": "gǒu", "de": "Hund", "kind": "Laut-Sinn-Zeichen", "parts": [["犭", "Tier"], ["句", "Lautteil", "gōu"]], "story": "Tier 犭 + 句 für den Klang."},
+  "苹":{"py": "píng", "de": "Apfel (in 苹果)", "kind": "Laut-Sinn-Zeichen", "parts": [["艹", "Pflanze"], ["平", "Lautteil", "píng"]], "story": "Pflanze 艹 + 平 píng für den Klang."},
+  "果":{"py": "guǒ", "de": "Frucht", "kind": "Bildzeichen", "parts": [["田", "Frucht (kein Feld)"], ["木", "Baum"]], "story": "Früchte an einem Baum 木 – das 田 ist hier die Frucht."},
+  "书":{"py": "shū", "de": "Buch", "kind": "Sinnzeichen", "story": "Vereinfacht aus 書: oben eine Hand mit Pinsel 聿."},
+  "钱":{"py": "qián", "de": "Geld", "kind": "Laut-Sinn-Zeichen", "parts": [["钅", "Metall"], ["戋", "Lautteil", "jiān"]], "story": "Metall 钅 + 戋 für den Klang."},
+  "买":{"py": "mǎi", "de": "kaufen", "kind": "Sinnzeichen", "story": "Vereinfacht aus 買: ein Netz 网 über Muscheln 贝 (altes Geld)."},
+  "来":{"py": "lái", "de": "kommen", "kind": "Bildzeichen", "story": "Ursprünglich eine Weizenpflanze; als „kommen“ nur entlehnt."},
+  "去":{"py": "qù", "de": "(hin)gehen", "parts": [["土", "Erde"], ["厶", "privat"]], "story": "Herkunft umstritten."},
+  "回":{"py": "huí", "de": "zurückkehren", "kind": "Bildzeichen", "story": "Ein Wirbel – sich drehen, zurückkehren."},
+  "坐":{"py": "zuò", "de": "sitzen", "kind": "Sinnzeichen", "parts": [["人", "Mensch (zweimal)"], ["土", "Erde"]], "story": "Zwei Menschen 人 sitzen auf der Erde 土."},
+  "住":{"py": "zhù", "de": "wohnen", "kind": "Laut-Sinn-Zeichen", "parts": [["亻", "Mensch"], ["主", "Lautteil", "zhǔ"]], "story": "Mensch 亻 + 主 für den Klang."},
+  "爱":{"py": "ài", "de": "lieben", "kind": "Sinnzeichen", "parts": [["爫", "Hand"], ["冖", "Dach"], ["友", "Freund"]], "story": "Vereinfacht aus 愛 – dabei ging das Herz 心 verloren, übrig blieb 友."},
+  "喜":{"py": "xǐ", "de": "sich freuen", "kind": "Sinnzeichen", "parts": [["壴", "Trommel"], ["口", "Mund"]], "story": "Trommel 壴 und Mund 口 – Musik und Freude."},
+  "欢":{"py": "huān", "de": "froh", "kind": "Laut-Sinn-Zeichen", "parts": [["又", "vereinfachter Lautteil"], ["欠", "offener Mund"]], "story": "Vereinfacht aus 歡; 欠 zeigt einen Menschen mit offenem Mund."},
+  "谢":{"py": "xiè", "de": "danken", "kind": "Laut-Sinn-Zeichen", "parts": [["讠", "Sprache"], ["射", "Lautteil", "shè"]], "story": "Sprache 讠 + 射 für den Klang."},
+  "再":{"py": "zài", "de": "wieder", "story": "Herkunft umstritten."},
+  "见":{"py": "jiàn", "de": "sehen", "kind": "Sinnzeichen", "parts": [["目", "Auge (vereinfacht)"], ["儿", "Mensch"]], "story": "Vereinfacht aus 見: ein Mensch 儿 mit großem Auge 目."},
+  "医":{"py": "yī", "de": "heilen, Arzt", "kind": "Sinnzeichen", "parts": [["匚", "Kasten"], ["矢", "Pfeil"]], "story": "Ein Kasten 匚 mit Pfeilspitzen 矢; die Langform 醫 enthielt noch Wein 酉 als Heilmittel."},
+  "飞":{"py": "fēi", "de": "fliegen", "kind": "Bildzeichen", "story": "Vereinfacht aus 飛: ein Vogel mit ausgebreiteten Flügeln."},
+  "机":{"py": "jī", "de": "Maschine", "kind": "Laut-Sinn-Zeichen", "parts": [["木", "Holz"], ["几", "Lautteil", "jī"]], "story": "Holz 木 + 几 für den Klang; vereinfacht aus 機 (Webstuhl-Mechanik)."},
+  "电":{"py": "diàn", "de": "Elektrizität", "kind": "Bildzeichen", "story": "Vereinfacht aus 電: ein Blitz aus einer Regenwolke 雨."},
+  "脑":{"py": "nǎo", "de": "Gehirn", "kind": "Sinnzeichen", "parts": [["月", "Fleisch, Körper"]], "story": "月 steht hier für Fleisch und Körper, rechts ein Schädel."},
+  "衣":{"py": "yī", "de": "Kleidung", "kind": "Bildzeichen", "story": "Ein Gewand mit Kragen und Ärmeln."},
+  "服":{"py": "fú", "de": "Kleidung; sich fügen", "kind": "Sinnzeichen", "parts": [["卩", "kniender Mensch"], ["又", "Hand"]], "story": "Eine Hand 又 drückt einen knienden Menschen 卩 nieder; „Kleidung“ kam später."},
+  "桌":{"py": "zhuō", "de": "Tisch", "kind": "Laut-Sinn-Zeichen", "parts": [["卓", "hoch", "zhuó"], ["木", "Holz"]], "story": "Holz 木 + 卓 zhuó für den Klang."},
+  "多":{"py": "duō", "de": "viel", "kind": "Sinnzeichen", "story": "Zwei Stücke Fleisch übereinander – viel (nicht zwei Abende 夕)."},
+  "少":{"py": "shǎo", "de": "wenig", "kind": "Sinnzeichen", "parts": [["小", "klein"]], "story": "Von 小 klein abgeleitet – wenig."},
+  "什":{"py": "shén", "de": "was (in 什么)", "kind": "Laut-Sinn-Zeichen", "parts": [["亻", "Mensch"], ["十", "zehn", "shí"]], "story": "Ursprünglich eine Gruppe von zehn Mann: Mensch 亻 + zehn 十."},
+  "么":{"py": "me", "de": "Fragepartikel", "story": "Vereinfacht aus 麼; hier nur grammatisch."},
+  "谁":{"py": "shéi", "de": "wer", "kind": "Laut-Sinn-Zeichen", "parts": [["讠", "Sprache"], ["隹", "Vogel", "zhuī"]], "story": "Sprache 讠 + 隹 für den Klang."},
+  "哪":{"py": "nǎ", "de": "welche, wo", "kind": "Laut-Sinn-Zeichen", "parts": [["口", "Mund"], ["那", "dort", "nà"]], "story": "Mund 口 + 那 nà für den Klang."},
+  "现":{"py": "xiàn", "de": "erscheinen, jetzt", "kind": "Laut-Sinn-Zeichen", "parts": [["王", "Jade"], ["见", "sehen", "jiàn"]], "story": "Jade 王 zeigt ihren Glanz 见; 见 gibt auch den Klang."},
+  "在":{"py": "zài", "de": "sich befinden, in", "kind": "Laut-Sinn-Zeichen", "parts": [["土", "Erde"], ["才", "Lautteil", "cái"]], "story": "Erde 土 + 才 für den Klang."},
+  "午":{"py": "wǔ", "de": "Mittag", "kind": "Bildzeichen", "story": "Ursprünglich ein Stößel (Mörserkeule); als „Mittag“ entlehnt."},
+  "商":{"py": "shāng", "de": "Handel", "story": "Herkunft umstritten; auch Name der Shang-Dynastie."},
+  "店":{"py": "diàn", "de": "Laden", "kind": "Laut-Sinn-Zeichen", "parts": [["广", "Gebäude"], ["占", "Lautteil", "zhàn"]], "story": "Gebäude 广 + 占 für den Klang."},
+  "不":{"py": "bù", "de": "nicht", "story": "Herkunft umstritten; als „nicht“ entlehnt."},
+  "是":{"py": "shì", "de": "sein", "parts": [["日", "Sonne"], ["疋", "Fuß"]], "story": "Herkunft umstritten."},
+  "有":{"py": "yǒu", "de": "haben", "kind": "Sinnzeichen", "parts": [["月", "Fleisch"]], "story": "Eine Hand hält ein Stück Fleisch 月 – haben."},
+  "为":{"py": "wèi", "de": "für, tun", "kind": "Bildzeichen", "story": "Vereinfacht aus 爲: ursprünglich eine Hand, die einen Elefanten führt – „tun“."},
+  "非":{"py": "fēi", "de": "nicht", "kind": "Bildzeichen", "story": "Zwei Flügel, die voneinander wegzeigen – Gegensatz, „nicht“."},
+  "常":{"py": "cháng", "de": "oft", "kind": "Laut-Sinn-Zeichen", "parts": [["巾", "Tuch"], ["尚", "Lautteil", "shàng"]], "story": "Tuch 巾 + 尚 für den Klang."},
+  "已":{"py": "yǐ", "de": "schon", "story": "Herkunft umstritten; nicht mit 己 jǐ und 巳 sì verwechseln."},
+  "经":{"py": "jīng", "de": "durchlaufen", "kind": "Laut-Sinn-Zeichen", "parts": [["纟", "Faden"], ["坙", "Kettfäden", "jīng"]], "story": "Ursprünglich die Kettfäden am Webstuhl."},
+  "起":{"py": "qǐ", "de": "aufstehen", "kind": "Laut-Sinn-Zeichen", "parts": [["走", "gehen"], ["己", "Lautteil", "jǐ"]], "story": "Gehen 走 + 己 für den Klang."},
+  "场":{"py": "chǎng", "de": "Platz", "kind": "Laut-Sinn-Zeichen", "parts": [["土", "Erde"], ["昜", "vereinfachter Lautteil", "yáng"]], "story": "Erde 土 + vereinfachtes 昜 als Lautteil."},
+  "教":{"py": "jiào", "de": "lehren", "kind": "Sinnzeichen", "parts": [["孝", "Kind unter Zeichen"], ["攵", "Hand mit Stock"]], "story": "Eine Hand mit Stock 攵 und ein Kind – lehren."},
+  "室":{"py": "shì", "de": "Zimmer", "kind": "Laut-Sinn-Zeichen", "parts": [["宀", "Dach"], ["至", "ankommen", "zhì"]], "story": "Dach 宀 + 至 für den Klang."},
+  "房":{"py": "fáng", "de": "Haus, Raum", "kind": "Laut-Sinn-Zeichen", "parts": [["户", "Tür"], ["方", "Lautteil", "fāng"]], "story": "Tür 户 + 方 für den Klang."},
+  "间":{"py": "jiān", "de": "Zwischenraum", "kind": "Sinnzeichen", "parts": [["门", "Tor"], ["日", "Sonne"]], "story": "Sonne 日 scheint durch einen Spalt im Tor 门 – dazwischen."},
+  "左":{"py": "zuǒ", "de": "links", "kind": "Sinnzeichen", "parts": [["工", "Werkzeug"]], "story": "Die linke Hand mit einem Werkzeug 工."},
+  "边":{"py": "biān", "de": "Seite, Rand", "kind": "Laut-Sinn-Zeichen", "parts": [["辶", "gehen"], ["力", "vereinfachter Lautteil"]], "story": "Vereinfacht aus 邊; 辶 steht für Weg und Bewegung."},
+  "右":{"py": "yòu", "de": "rechts", "kind": "Sinnzeichen", "parts": [["口", "Mund"]], "story": "Die rechte Hand, später mit Mund 口 dazu."},
+  "旁":{"py": "páng", "de": "daneben", "kind": "Laut-Sinn-Zeichen", "parts": [["方", "Lautteil", "fāng"]], "story": "方 gibt den Klang; die Herkunft ist sonst umstritten."},
+  "早":{"py": "zǎo", "de": "früh", "parts": [["日", "Sonne"]], "story": "Sonne 日 oben – früh; die genaue Herkunft ist umstritten."},
+  "晚":{"py": "wǎn", "de": "Abend, spät", "kind": "Laut-Sinn-Zeichen", "parts": [["日", "Sonne"], ["免", "Lautteil", "miǎn"]], "story": "Sonne 日 + 免 für den Klang."},
+  "时":{"py": "shí", "de": "Zeit", "kind": "Laut-Sinn-Zeichen", "parts": [["日", "Sonne"], ["寸", "vereinfacht aus 寺", "sì"]], "story": "Vereinfacht aus 時: Sonne 日 + 寺 als Lautteil."},
+  "日":{"py": "rì", "de": "Sonne, Tag", "kind": "Bildzeichen", "story": "Die Sonne – ein Kreis mit einem Punkt in der Mitte."},
+  "哥":{"py": "gē", "de": "älterer Bruder", "kind": "Laut-Sinn-Zeichen", "parts": [["可", "Lautteil (zweimal)", "kě"]], "story": "Zweimal 可; ursprünglich „singen“ (heute 歌)."},
+  "姐":{"py": "jiě", "de": "ältere Schwester", "kind": "Laut-Sinn-Zeichen", "parts": [["女", "Frau"], ["且", "Lautteil", "qiě"]], "story": "Frau 女 + 且 für den Klang."},
+  "孩":{"py": "hái", "de": "Kind", "kind": "Laut-Sinn-Zeichen", "parts": [["子", "Kind"], ["亥", "Lautteil", "hài"]], "story": "Kind 子 + 亥 für den Klang."},
+  "务":{"py": "wù", "de": "Angelegenheit", "kind": "Laut-Sinn-Zeichen", "parts": [["力", "Kraft"]], "story": "Vereinfacht aus 務: Kraft 力 + 敄 wù als Lautteil."},
+  "员":{"py": "yuán", "de": "Mitglied", "kind": "Bildzeichen", "parts": [["口", "Kreis"], ["贝", "Kessel (vereinfacht)"]], "story": "Ursprünglich ein Kreis über einem Kessel – „rund“ (heute 圆)."},
+  "西":{"py": "xī", "de": "Westen", "kind": "Bildzeichen", "story": "Ursprünglich ein Vogelnest; als „Westen“ entlehnt."},
+  "瓜":{"py": "guā", "de": "Melone", "kind": "Bildzeichen", "story": "Eine Melone, die an einer Ranke hängt."},
+  "咖":{"py": "kā", "de": "(in 咖啡)", "kind": "Laut-Sinn-Zeichen", "parts": [["口", "Mund"], ["加", "Lautteil", "jiā"]], "story": "口 markiert ein Lautwort für Fremdwörter, 加 gibt den Klang."},
+  "啡":{"py": "fēi", "de": "(in 咖啡)", "kind": "Laut-Sinn-Zeichen", "parts": [["口", "Mund"], ["非", "Lautteil", "fēi"]], "story": "口 markiert ein Lautwort für Fremdwörter, 非 gibt den Klang."},
+  "手":{"py": "shǒu", "de": "Hand", "kind": "Bildzeichen", "story": "Eine Hand mit gespreizten Fingern."},
+  "身":{"py": "shēn", "de": "Körper", "kind": "Bildzeichen", "story": "Ein Mensch mit gewölbtem Bauch – der Körper."},
+  "体":{"py": "tǐ", "de": "Körper", "kind": "Sinnzeichen", "parts": [["亻", "Mensch"], ["本", "Wurzel"]], "story": "Moderne Form von 體 (mit Knochen 骨); heute Mensch 亻 + Wurzel 本."},
+  "公":{"py": "gōng", "de": "öffentlich", "kind": "Sinnzeichen", "parts": [["八", "teilen"], ["厶", "privat"]], "story": "Das Private 厶 aufteilen 八 – öffentlich."},
+  "共":{"py": "gòng", "de": "gemeinsam", "kind": "Bildzeichen", "parts": [["廾", "zwei Hände"]], "story": "Zwei Hände 廾, die zusammen etwas hochhalten."},
+  "汽":{"py": "qì", "de": "Dampf", "kind": "Laut-Sinn-Zeichen", "parts": [["氵", "Wasser"], ["气", "Dampf", "qì"]], "story": "Wasser 氵 + 气 – Dampf; 气 gibt auch den Klang."},
+  "车":{"py": "chē", "de": "Wagen", "kind": "Bildzeichen", "story": "Vereinfacht aus 車: ein Wagen von oben – Achse mit zwei Rädern."},
+  "问":{"py": "wèn", "de": "fragen", "kind": "Laut-Sinn-Zeichen", "parts": [["门", "Tor", "mén"], ["口", "Mund"]], "story": "Mund 口 im Tor 门; 门 gibt den Klang."},
+  "题":{"py": "tí", "de": "Thema, Aufgabe", "kind": "Laut-Sinn-Zeichen", "parts": [["是", "Lautteil", "shì"], ["页", "Kopf"]], "story": "Kopf 页 + 是 für den Klang; ursprünglich „Stirn“."},
+  "考":{"py": "kǎo", "de": "prüfen", "kind": "Laut-Sinn-Zeichen", "parts": [["耂", "alt"], ["丂", "Lautteil", "kǎo"]], "story": "Alt 耂 + 丂 für den Klang."},
+  "试":{"py": "shì", "de": "versuchen", "kind": "Laut-Sinn-Zeichen", "parts": [["讠", "Sprache"], ["式", "Lautteil", "shì"]], "story": "Sprache 讠 + 式 für den Klang."},
+  "意":{"py": "yì", "de": "Bedeutung, Absicht", "kind": "Sinnzeichen", "parts": [["音", "Ton, Stimme"], ["心", "Herz"]], "story": "Die Stimme 音 des Herzens 心 – Gedanke, Absicht."},
+  "思":{"py": "sī", "de": "denken", "kind": "Sinnzeichen", "parts": [["田", "Schädel (umgeformt)"], ["心", "Herz"]], "story": "Ursprünglich ein Schädel 囟 über dem Herzen 心; das „Feld“ ist nur angeglichen."},
+  "话":{"py": "huà", "de": "Rede, Worte", "kind": "Sinnzeichen", "parts": [["讠", "Sprache"], ["舌", "Zunge"]], "story": "Sprache 讠 und Zunge 舌 – reden."},
+  "准":{"py": "zhǔn", "de": "genau", "kind": "Laut-Sinn-Zeichen", "parts": [["冫", "Wasser (vereinfacht)"], ["隹", "Vogel", "zhuī"]], "story": "Vereinfacht aus 準 mit Wasser 氵; 隹 gibt den Klang."},
+  "备":{"py": "bèi", "de": "vorbereiten", "kind": "Bildzeichen", "story": "Vereinfacht aus 備; ursprünglich ein Köcher voller Pfeile – bereit."},
+  "介":{"py": "jiè", "de": "vermitteln", "parts": [["人", "Mensch"]], "story": "Herkunft umstritten (vielleicht ein Mensch in Rüstung)."},
+  "绍":{"py": "shào", "de": "fortsetzen", "kind": "Laut-Sinn-Zeichen", "parts": [["纟", "Faden"], ["召", "Lautteil", "zhào"]], "story": "Faden 纟 + 召 für den Klang."},
+  "希":{"py": "xī", "de": "hoffen", "story": "Herkunft umstritten."},
+  "望":{"py": "wàng", "de": "schauen, hoffen", "kind": "Sinnzeichen", "parts": [["亡", "Lautteil", "wáng"], ["月", "Mond"], ["王", "Mensch auf Erde"]], "story": "Ein Mensch auf einem Erdhügel blickt zum Mond 月; 亡 gibt den Klang."},
+  "觉":{"py": "jué", "de": "fühlen", "kind": "Laut-Sinn-Zeichen", "parts": [["⺍", "Lautteil (aus 學)"], ["见", "sehen"]], "story": "Sehen 见 + verkürztes 學 als Lautteil."},
+  "得":{"py": "dé", "de": "bekommen", "kind": "Sinnzeichen", "parts": [["彳", "Weg"], ["旦", "Muschel (umgeformt)"], ["寸", "Hand"]], "story": "Unterwegs 彳 greift eine Hand 寸 nach einer Muschel – Geld bekommen."},
+  "旅":{"py": "lǚ", "de": "reisen", "kind": "Sinnzeichen", "parts": [["方", "Fahnenmast"]], "story": "Menschen unter einer Fahne – erst eine Truppe, dann reisen."},
+  "游":{"py": "yóu", "de": "reisen, schwimmen", "kind": "Laut-Sinn-Zeichen", "parts": [["氵", "Wasser"], ["斿", "Lautteil", "yóu"]], "story": "Wasser 氵 + 斿 für den Klang."},
+  "休":{"py": "xiū", "de": "ruhen", "kind": "Sinnzeichen", "parts": [["亻", "Mensch"], ["木", "Baum"]], "story": "Ein Mensch 亻 lehnt an einem Baum 木 – ausruhen."},
+  "息":{"py": "xī", "de": "Atem", "kind": "Sinnzeichen", "parts": [["自", "Nase"], ["心", "Herz"]], "story": "Nase 自 über dem Herzen 心 – Atem."},
+  "便":{"py": "biàn", "de": "bequem; pián in 便宜", "kind": "Sinnzeichen", "parts": [["亻", "Mensch"], ["更", "ändern"]], "story": "Mensch 亻 + 更 ändern – sich anpassen, bequem."},
+  "宜":{"py": "yí", "de": "passend", "kind": "Sinnzeichen", "parts": [["宀", "Dach"], ["且", "Opfertisch"]], "story": "Opfergaben auf einem Tisch 且 unter einem Dach 宀."},
+  "快":{"py": "kuài", "de": "schnell, froh", "kind": "Laut-Sinn-Zeichen", "parts": [["忄", "Herz"], ["夬", "Lautteil", "guài"]], "story": "Herz 忄 + 夬 für den Klang."},
+  "乐":{"py": "lè", "de": "froh", "kind": "Bildzeichen", "story": "Vereinfacht aus 樂: ein Saiteninstrument auf Holz 木."},
+  "阿":{"py": "ā", "de": "(Vorsilbe)", "kind": "Laut-Sinn-Zeichen", "parts": [["阝", "Hügel"], ["可", "Lautteil", "kě"]], "story": "Hügel 阝 + 可 für den Klang."},
+  "姨":{"py": "yí", "de": "Tante", "kind": "Laut-Sinn-Zeichen", "parts": [["女", "Frau"], ["夷", "Lautteil", "yí"]], "story": "Frau 女 + 夷 für den Klang."},
+  "安":{"py": "ān", "de": "ruhig, sicher", "kind": "Sinnzeichen", "parts": [["宀", "Dach"], ["女", "Frau"]], "story": "Eine Frau 女 unter dem Dach 宀 – in Sicherheit."},
+  "静":{"py": "jìng", "de": "still", "kind": "Laut-Sinn-Zeichen", "parts": [["青", "klar"], ["争", "Lautteil", "zhēng"]], "story": "Klar 青 + 争 für den Klang."},
+  "办":{"py": "bàn", "de": "erledigen", "parts": [["力", "Kraft"]], "story": "Vereinfacht aus 辦."},
+  "法":{"py": "fǎ", "de": "Methode, Gesetz", "kind": "Sinnzeichen", "parts": [["氵", "Wasser"], ["去", "gehen"]], "story": "Wasser 氵 fließt seinen Weg 去 – Regel, Gesetz."},
+  "帮":{"py": "bāng", "de": "helfen", "kind": "Laut-Sinn-Zeichen", "parts": [["邦", "Land", "bāng"], ["巾", "Tuch"]], "story": "Tuch 巾 + 邦 für den Klang."},
+  "忙":{"py": "máng", "de": "beschäftigt", "kind": "Laut-Sinn-Zeichen", "parts": [["忄", "Herz"], ["亡", "Lautteil", "wáng"]], "story": "Herz 忄 + 亡 für den Klang."},
+  "比":{"py": "bǐ", "de": "vergleichen", "kind": "Bildzeichen", "story": "Zwei Menschen nebeneinander – vergleichen."},
+  "较":{"py": "jiào", "de": "vergleichen", "kind": "Laut-Sinn-Zeichen", "parts": [["车", "Wagen"], ["交", "Lautteil", "jiāo"]], "story": "Wagen 车 + 交 für den Klang."},
+  "赛":{"py": "sài", "de": "Wettkampf", "kind": "Laut-Sinn-Zeichen", "parts": [["贝", "Muschel, Opfergabe"]], "story": "Opfergabe 贝 + verkürztes 塞 sāi als Lautteil."},
+  "必":{"py": "bì", "de": "unbedingt", "story": "Herkunft umstritten."},
+  "须":{"py": "xū", "de": "Bart; müssen", "kind": "Sinnzeichen", "parts": [["彡", "Haare"], ["页", "Kopf"]], "story": "Haare 彡 am Kopf 页 – ein Bart; „müssen“ ist entlehnt."},
+  "变":{"py": "biàn", "de": "verändern", "story": "Vereinfacht aus 變."},
+  "化":{"py": "huà", "de": "verwandeln", "kind": "Sinnzeichen", "parts": [["亻", "aufrechter Mensch"], ["匕", "umgedrehter Mensch"]], "story": "Ein aufrechter und ein umgedrehter Mensch – Verwandlung."},
+  "别":{"py": "bié", "de": "trennen; andere", "kind": "Sinnzeichen", "parts": [["刂", "Messer"]], "story": "Mit dem Messer 刂 Knochen vom Fleisch trennen."},
+  "冰":{"py": "bīng", "de": "Eis", "kind": "Sinnzeichen", "parts": [["冫", "Eis"], ["水", "Wasser"]], "story": "Gefrorenes 冫 Wasser 水."},
+  "箱":{"py": "xiāng", "de": "Kiste", "kind": "Laut-Sinn-Zeichen", "parts": [["⺮", "Bambus"], ["相", "Lautteil", "xiāng"]], "story": "Bambus ⺮ + 相 für den Klang."},
+  "超":{"py": "chāo", "de": "überholen", "kind": "Laut-Sinn-Zeichen", "parts": [["走", "gehen"], ["召", "Lautteil", "zhào"]], "story": "Gehen 走 + 召 für den Klang."},
+  "市":{"py": "shì", "de": "Markt, Stadt", "story": "Herkunft umstritten."},
+  "成":{"py": "chéng", "de": "werden, vollenden", "kind": "Laut-Sinn-Zeichen", "parts": [["戈", "Waffe"], ["丁", "Lautteil", "dīng"]], "story": "Waffe 戈 + 丁 für den Klang."},
+  "绩":{"py": "jì", "de": "Leistung", "kind": "Laut-Sinn-Zeichen", "parts": [["纟", "Faden"], ["责", "Lautteil", "zé"]], "story": "Ursprünglich Fäden spinnen; 责 gibt den Klang."},
+  "城":{"py": "chéng", "de": "Stadt(mauer)", "kind": "Laut-Sinn-Zeichen", "parts": [["土", "Erde"], ["成", "Lautteil", "chéng"]], "story": "Erde 土 + 成 für den Klang – eine Mauer aus Erde."},
+  "迟":{"py": "chí", "de": "spät", "kind": "Laut-Sinn-Zeichen", "parts": [["辶", "gehen"], ["尺", "Lautteil", "chǐ"]], "story": "Gehen 辶 + 尺 für den Klang."},
+  "到":{"py": "dào", "de": "ankommen", "kind": "Laut-Sinn-Zeichen", "parts": [["至", "ankommen"], ["刂", "Messer", "dāo"]], "story": "Ankommen 至 + Messer 刂 (刀 dāo) für den Klang."},
+  "除":{"py": "chú", "de": "entfernen", "kind": "Laut-Sinn-Zeichen", "parts": [["阝", "Stufen"], ["余", "Lautteil", "yú"]], "story": "Stufen 阝 + 余 für den Klang."},
+  "了":{"py": "le, liǎo", "de": "(Partikel); verstehen", "story": "Herkunft umstritten."},
+  "词":{"py": "cí", "de": "Wort", "kind": "Laut-Sinn-Zeichen", "parts": [["讠", "Sprache"], ["司", "Lautteil", "sī"]], "story": "Sprache 讠 + 司 für den Klang."},
+  "典":{"py": "diǎn", "de": "Klassiker, Norm", "kind": "Sinnzeichen", "parts": [["曲", "Buch (umgeformt)"], ["八", "Gestell"]], "story": "Ein Buch auf einem Gestell – wichtige Schriften."},
+  "聪":{"py": "cōng", "de": "klug", "kind": "Laut-Sinn-Zeichen", "parts": [["耳", "Ohr"], ["总", "Lautteil", "zǒng"]], "story": "Ohr 耳 + 总 für den Klang – wer gut hört, ist klug."},
+  "打":{"py": "dǎ", "de": "schlagen", "kind": "Laut-Sinn-Zeichen", "parts": [["扌", "Hand"], ["丁", "Lautteil", "dīng"]], "story": "Hand 扌 + 丁 für den Klang."},
+  "算":{"py": "suàn", "de": "rechnen", "kind": "Sinnzeichen", "parts": [["⺮", "Bambus"], ["具", "Hände mit Gerät"]], "story": "Bambusstäbchen ⺮ in beiden Händen – rechnen."},
+  "担":{"py": "dān", "de": "tragen", "kind": "Laut-Sinn-Zeichen", "parts": [["扌", "Hand"], ["旦", "Lautteil", "dàn"]], "story": "Hand 扌 + 旦 für den Klang."},
+  "心":{"py": "xīn", "de": "Herz", "kind": "Bildzeichen", "story": "Ein Herz mit seinen Kammern."},
+  "地":{"py": "dì", "de": "Erde", "kind": "Laut-Sinn-Zeichen", "parts": [["土", "Erde"], ["也", "Lautteil", "yě"]], "story": "Erde 土 + 也 als Lautteil."},
+  "铁":{"py": "tiě", "de": "Eisen", "kind": "Laut-Sinn-Zeichen", "parts": [["钅", "Metall"], ["失", "Lautteil", "shī"]], "story": "Metall 钅 + 失 für den Klang."},
+  "图":{"py": "tú", "de": "Bild, Karte", "kind": "Sinnzeichen", "parts": [["囗", "Rahmen"]], "story": "Vereinfacht aus 圖: ein Plan in einem Rahmen 囗."},
+  "短":{"py": "duǎn", "de": "kurz", "kind": "Laut-Sinn-Zeichen", "parts": [["矢", "Pfeil"], ["豆", "Lautteil", "dòu"]], "story": "Der Pfeil 矢 als Maß für etwas Kurzes; 豆 gibt den Klang."},
+  "锻":{"py": "duàn", "de": "schmieden", "kind": "Laut-Sinn-Zeichen", "parts": [["钅", "Metall"], ["段", "Lautteil", "duàn"]], "story": "Metall 钅 + 段 für den Klang."},
+  "炼":{"py": "liàn", "de": "schmelzen", "kind": "Laut-Sinn-Zeichen", "parts": [["火", "Feuer"], ["柬", "vereinfachter Lautteil", "jiǎn"]], "story": "Feuer 火 + 柬 als Lautteil."},
+  "附":{"py": "fù", "de": "nahe, anhängen", "kind": "Laut-Sinn-Zeichen", "parts": [["阝", "Hügel"], ["付", "Lautteil", "fù"]], "story": "Hügel 阝 + 付 für den Klang."},
+  "近":{"py": "jìn", "de": "nah", "kind": "Laut-Sinn-Zeichen", "parts": [["辶", "gehen"], ["斤", "Lautteil", "jīn"]], "story": "Gehen 辶 + 斤 für den Klang."},
+  "复":{"py": "fù", "de": "wiederholen", "parts": [["夂", "Fuß"]], "story": "Unten ein Fuß 夂 – gehen und wiederkommen; Herkunft sonst umstritten."},
+  "干":{"py": "gān", "de": "trocken", "kind": "Bildzeichen", "story": "Ursprünglich ein gegabelter Stock, eine Waffe."},
+  "净":{"py": "jìng", "de": "sauber", "kind": "Laut-Sinn-Zeichen", "parts": [["冫", "Wasser (vereinfacht)"], ["争", "Lautteil", "zhēng"]], "story": "Wasser + 争 für den Klang."},
+  "感":{"py": "gǎn", "de": "fühlen", "kind": "Laut-Sinn-Zeichen", "parts": [["心", "Herz"], ["咸", "Lautteil", "xián"]], "story": "Herz 心 + 咸 für den Klang."},
+  "兴":{"py": "xìng", "de": "Interesse", "kind": "Bildzeichen", "story": "Vereinfacht aus 興: vier Hände heben gemeinsam etwas hoch."},
+  "趣":{"py": "qù", "de": "Interesse", "kind": "Laut-Sinn-Zeichen", "parts": [["走", "gehen"], ["取", "Lautteil", "qǔ"]], "story": "Gehen 走 + 取 für den Klang."},
+  "冒":{"py": "mào", "de": "sich erkälten; wagen", "kind": "Sinnzeichen", "parts": [["冃", "Kappe"], ["目", "Auge"]], "story": "Eine Kappe 冃 über den Augen 目 – ursprünglich eine Mütze."},
+  "刚":{"py": "gāng", "de": "gerade eben", "kind": "Laut-Sinn-Zeichen", "parts": [["刂", "Messer"], ["冈", "Lautteil", "gāng"]], "story": "Messer 刂 + 冈 für den Klang; ursprünglich „hart“."},
+  "才":{"py": "cái", "de": "erst; Talent", "kind": "Bildzeichen", "story": "Ein Keim, der durch den Boden bricht."},
+  "关":{"py": "guān", "de": "schließen", "story": "Vereinfacht aus 關: ein Riegel im Tor 門."},
+  "系":{"py": "xì", "de": "verbinden", "kind": "Sinnzeichen", "parts": [["糸", "Faden"]], "story": "Fäden 糸, die aneinanderhängen – verbinden."},
+  "环":{"py": "huán", "de": "Ring", "kind": "Laut-Sinn-Zeichen", "parts": [["王", "Jade"], ["不", "vereinfachter Lautteil"]], "story": "Jade 王 + vereinfachtes 睘 huán als Lautteil."},
+  "境":{"py": "jìng", "de": "Grenze, Umgebung", "kind": "Laut-Sinn-Zeichen", "parts": [["土", "Erde"], ["竟", "Lautteil", "jìng"]], "story": "Erde 土 + 竟 für den Klang."},
+  "会":{"py": "huì", "de": "können; Treffen", "story": "Vereinfacht aus 會: ein Deckel auf einem Gefäß – zusammenkommen."},
+  "议":{"py": "yì", "de": "besprechen", "kind": "Laut-Sinn-Zeichen", "parts": [["讠", "Sprache"], ["义", "Lautteil", "yì"]], "story": "Sprache 讠 + 义 für den Klang."},
+  "记":{"py": "jì", "de": "sich merken", "kind": "Laut-Sinn-Zeichen", "parts": [["讠", "Sprache"], ["己", "Lautteil", "jǐ"]], "story": "Sprache 讠 + 己 für den Klang."},
+  "健":{"py": "jiàn", "de": "gesund, kräftig", "kind": "Laut-Sinn-Zeichen", "parts": [["亻", "Mensch"], ["建", "bauen", "jiàn"]], "story": "Mensch 亻 + 建 für den Klang."},
+  "康":{"py": "kāng", "de": "gesund", "story": "Herkunft umstritten."},
+  "简":{"py": "jiǎn", "de": "einfach", "kind": "Laut-Sinn-Zeichen", "parts": [["⺮", "Bambus"], ["间", "Lautteil", "jiān"]], "story": "Bambusstreifen ⺮ – darauf schrieb man früher; 间 gibt den Klang."},
+  "单":{"py": "dān", "de": "einzeln", "story": "Herkunft umstritten."},
+  "决":{"py": "jué", "de": "entscheiden", "kind": "Laut-Sinn-Zeichen", "parts": [["冫", "Wasser (vereinfacht)"], ["夬", "Lautteil", "guài"]], "story": "Wasser bricht durch einen Damm; 夬 gibt den Klang."},
+  "定":{"py": "dìng", "de": "festlegen", "kind": "Laut-Sinn-Zeichen", "parts": [["宀", "Dach"], ["正", "Lautteil", "zhèng"]], "story": "Unter dem Dach 宀 zur Ruhe kommen; 正 gibt den Klang."},
+  "解":{"py": "jiě", "de": "lösen", "kind": "Sinnzeichen", "parts": [["角", "Horn"], ["刀", "Messer"], ["牛", "Rind"]], "story": "Mit dem Messer 刀 das Horn 角 vom Rind 牛 lösen."},
+};
+
+// Every toneless pinyin syllable (from Make Me a Hanzi readings), ü as v.
+// Used only by the paste parser to tell pinyin from German.
+const PINYIN_SYLLABLES = new Set('a ai an ang ao ba bai ban bang bao bei ben beng bi bian biao bie bin bing bo bu ca cai can cang cao ce cen ceng cha chai chan chang chao che chen cheng chi chong chou chu chua chuai chuan chuang chui chun chuo ci cong cou cu cuan cui cun cuo da dai dan dang dao de deng di dia dian diao die ding diu dong dou du duan dui dun duo e ei en er fa fan fang fei fen feng fou fu ga gai gan gang gao ge gei gen geng gong gou gu gua guai guan guang gui gun guo ha hai han hang hao he hei hen heng hong hou hu hua huai huan huang hui hun huo ji jia jian jiang jiao jie jin jing jiong jiu ju juan jue jun ka kai kan kang kao ke ken keng kong kou ku kua kuai kuan kuang kui kun kuo la lai lan lang lao le lei leng li lia lian liang liao lie lin ling liu long lou lu luan lun luo luv luve m ma mai man mang mao me mei men meng mi mian miao mie min ming miu mo mou mu na nai nan nang nao ne nei nen neng ni nian niang niao nie nin ning niu nong nou nu nuan nuo nuv nuve o ou pa pai pan pang pao pei pen peng pi pian piao pie pin ping po pou pu qi qia qian qiang qiao qie qin qing qiong qiu qu quan que qun r ran rang rao re ren reng ri rong rou ru ruan rui run ruo sa sai san sang sao se sen seng sha shai shan shang shao she shen sheng shi shou shu shua shuai shuan shuang shui shun shuo si song sou su suan sui sun suo ta tai tan tang tao te teng ti tian tiao tie ting tong tou tu tuan tui tun tuo wa wai wan wang wei wen weng wo wu xi xia xian xiang xiao xie xin xing xiong xiu xu xuan xue xun ya yan yang yao ye yi yin ying yo yong you yu yuan yue yun za zai zan zang zao ze zei zen zeng zha zhai zhan zhang zhao zhe zhen zheng zhi zhong zhou zhu zhua zhuai zhuan zhuang zhui zhun zhuo zi zong zou zu zuan zui zun zuo'.split(' '));
 
 // -------- Leitner scheduling --------
 const INTERVAL_MS = {
@@ -763,6 +1310,7 @@ const INTERVAL_MS = {
   5: 21 * 24*60*60*1000,        // 21 days
 };
 const STORAGE_KEY = 'zh-tingxie-progress';
+const VOCAB_KEY = 'zh-tingxie-vocab';
 
 let progress = {};
 let queue = [];
@@ -779,14 +1327,16 @@ function baseRate(item){ return item && item.type === 'sentence' ? RATE_SENTENCE
 function currentRate(){ return slowMode ? RATE_SLOW : baseRate(currentItem()); }
 let zhVoice = null;
 
-// Storage abstraction: talks to the /api/progress backend so progress syncs
+// Storage abstraction: talks to the /api/progress and /api/vocab backend so
+// progress and word lists sync
 // across devices. localStorage is kept as an offline cache — reads fall back to
 // it when the server is unreachable, writes always land there first so a failed
 // request never loses a grading. Every write PUTs the whole progress object,
 // so a failed save self-heals on the next one.
 // Set localStorage['tingxie-token'] per device if the server runs with
 // TINGXIE_TOKEN; not needed behind Cloudflare Access.
-const API_URL = '/api/progress';
+// One endpoint per storage key; each is per user on the server side.
+const ENDPOINTS = { [STORAGE_KEY]: '/api/progress', [VOCAB_KEY]: '/api/vocab' };
 const Storage = {
   headers(){
     const h = { 'Content-Type': 'application/json' };
@@ -798,7 +1348,7 @@ const Storage = {
   },
   async get(key){
     try{
-      const res = await fetch(API_URL, { headers: this.headers(), cache: 'no-store' });
+      const res = await fetch(ENDPOINTS[key], { headers: this.headers(), cache: 'no-store' });
       if(!res.ok) throw new Error('HTTP ' + res.status);
       const value = JSON.stringify(await res.json());
       try{ localStorage.setItem(key, value); }catch(e){}
@@ -811,13 +1361,32 @@ const Storage = {
       }catch(e2){ return null; }
     }
   },
+  // One PUT per key in flight; while it runs, only the newest value waits.
+  // Every PUT carries the whole object, so skipping intermediate values loses
+  // nothing, and requests can't overtake each other and land an older state.
+  inflight: {},
+  queued: {},
   async set(key, value){
     try{ localStorage.setItem(key, value); }catch(e){}
+    if(this.inflight[key]){
+      this.queued[key] = value;
+      return { key, value, shared: false };
+    }
+    this.inflight[key] = true;
     try{
-      const res = await fetch(API_URL, { method: 'PUT', headers: this.headers(), body: value });
-      if(!res.ok) throw new Error('HTTP ' + res.status);
-    }catch(e){
-      console.warn('Sync fehlgeschlagen, lokal gespeichert', e);
+      let body = value;
+      while(body !== undefined){
+        delete this.queued[key];
+        try{
+          const res = await fetch(ENDPOINTS[key], { method: 'PUT', headers: this.headers(), body });
+          if(!res.ok) throw new Error('HTTP ' + res.status);
+        }catch(e){
+          console.warn('Sync fehlgeschlagen, lokal gespeichert', e);
+        }
+        body = this.queued[key];
+      }
+    }finally{
+      this.inflight[key] = false;
     }
     return { key, value, shared: false };
   }
@@ -853,25 +1422,33 @@ async function saveProgress(){
 }
 
 // ---- Exercise modes --------------------------------------------------------
-// Three named exercise types rather than an input×output matrix: the matrix
+// Four named exercise types rather than an input×output matrix: the matrix
 // produces mostly degenerate pairs and turns the app into a settings screen.
 // Sessions mix all enabled modes instead of drilling one at a time.
 //
 // Each (item, mode) pair schedules independently — recognising 大家 by ear and
 // producing it from "alle (Personen)" are different skills that decay at
 // different rates, so one shared box would mis-schedule both.
+//
+// "zeichen" is the odd one out: its cards are single characters, not words
+// (see charItems), and they are written stroke by stroke with the order
+// checked, instead of drawn freehand.
 const MODES = [
-  { id: 'listen', chip: 'Hören',     tag: 'Hören',     ask: 'Was hast du gehört?' },
-  { id: 'de2hz',  chip: 'Schreiben', tag: 'Schreiben', ask: 'Wie schreibt man das?' },
-  { id: 'hz2de',  chip: 'Lesen',     tag: 'Lesen',     ask: 'Was bedeutet das?' },
+  { id: 'listen',  chip: 'Hören',     tag: 'Hören',     ask: 'Was hast du gehört?' },
+  { id: 'de2hz',   chip: 'Schreiben', tag: 'Schreiben', ask: 'Wie schreibt man das?' },
+  { id: 'hz2de',   chip: 'Lesen',     tag: 'Lesen',     ask: 'Was bedeutet das?' },
+  { id: 'zeichen', chip: 'Zeichen',   tag: 'Zeichen',   ask: 'Schreib das fehlende Zeichen.' },
 ];
 const MODE_IDS = MODES.map(m => m.id);
 const MODES_KEY = 'tingxie-modes';
-// Cap on unseen cards per session. With three modes the bank is ~294 cards, so
-// without this the first session would introduce every one of them at once.
+// Zeichen is opt-in: switching it on by default would drop ~200 new character
+// cards into every existing deck on the next load.
+const DEFAULT_MODES = ['listen', 'de2hz', 'hz2de'];
+// Cap on unseen cards per session. Without it the first session would
+// introduce every card in the deck at once.
 const NEW_PER_SESSION = 12;
 
-let enabledModes = MODE_IDS.slice();
+let enabledModes = DEFAULT_MODES.slice();
 
 function loadModes(){
   try{
@@ -889,8 +1466,11 @@ function modeInfo(id){ return MODES.find(m => m.id === id) || MODES[0]; }
 
 // Not every mode makes sense for every item. Writing a whole sentence in hanzi
 // from a German prompt is a translation exercise, not dictation — far beyond
-// HSK2/3 and mostly a failure generator.
+// HSK2/3 and mostly a failure generator. Character items belong to "zeichen"
+// alone, and "zeichen" takes nothing else.
 function modeApplies(mode, item){
+  if(mode === 'zeichen') return item.type === 'char';
+  if(item.type === 'char') return false;
   return !(mode === 'de2hz' && item.type === 'sentence');
 }
 
@@ -899,15 +1479,19 @@ function modeApplies(mode, item){
 //            heard and parsed it, not whether you can form the strokes.
 //   canvas — draw the characters. Only de2hz, where producing the character
 //            from meaning is precisely the skill being trained.
+//   stroke — one character, written stroke by stroke with the order checked
+//            (Hanzi Writer). Only zeichen.
 //   none   — nothing to enter, self-assessed on reveal
 function answerFormat(mode){
   if(mode === 'hz2de') return 'none';
   if(mode === 'listen') return 'pinyin';
+  if(mode === 'zeichen') return 'stroke';
   return 'canvas';
 }
 
 // Progress is keyed "<itemId>:<mode>". Item ids never contain ':', so
-// splitting on the last one is unambiguous.
+// splitting on the last one is unambiguous. Character cards use 'z' + the
+// character itself as id, e.g. "z好:zeichen".
 function cardKey(id, mode){ return id + ':' + mode; }
 function parseKey(key){
   const i = key.lastIndexOf(':');
@@ -926,31 +1510,204 @@ function shuffle(a){
   return a;
 }
 
-function buildQueue(){
-  const now = Date.now();
-  const due = [];
-  const fresh = [];
-  for(const mode of enabledModes){
-    for(const it of ITEMS){
-      if(!modeApplies(mode, it)) continue;
-      const key = cardKey(it.id, mode);
-      const e = progress[key];
-      if(!e) fresh.push(key);
-      else if((e.next || 0) <= now) due.push(key);
+// Everything that ends up in innerHTML and did not come from a hardcoded
+// table goes through this. User lists make it necessary: their words are
+// typed or pasted by the learner and synced through the server.
+function esc(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g,
+    c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+
+// ---- Word sources & user lists --------------------------------------------
+// The deck is the union of the enabled sources: the bank's HSK levels, the
+// bank's sentence cards, and the learner's own lists (e.g. one per lesson of
+// a course). Which ones are on is synced per user with the lists, since it is
+// part of "what am I learning", not a device preference.
+const SOURCE_CHIPS = [
+  { id: 'hsk1', chip: 'HSK1' },
+  { id: 'hsk2', chip: 'HSK2' },
+  { id: 'hsk3', chip: 'HSK3' },
+  { id: 'sent', chip: 'Sätze' },
+];
+// The deck as it was before sources existed, so nobody's sessions change
+// until they pick something else.
+const DEFAULT_SOURCES = ['hsk2', 'hsk3', 'sent'];
+const LIST_MAX_ITEMS = 500;
+
+let vocab = { sources: null, lists: [], words: {} };
+let ITEM_BY_ID = new Map();
+let CHAR_ITEMS = new Map();
+
+async function loadVocab(){
+  let v = {};
+  try{
+    const res = await Storage.get(VOCAB_KEY);
+    if(res && res.value) v = JSON.parse(res.value) || {};
+  }catch(e){}
+  vocab = {
+    sources: Array.isArray(v.sources) ? v.sources : null,
+    lists: Array.isArray(v.lists) ? v.lists : [],
+    words: v.words && typeof v.words === 'object' ? v.words : {},
+  };
+  rebuildIndex();
+}
+function saveVocab(){
+  const out = { lists: vocab.lists, words: vocab.words };
+  if(vocab.sources) out.sources = vocab.sources;
+  Storage.set(VOCAB_KEY, JSON.stringify(out));
+}
+
+// Ids for lists and own words: [a-z0-9], as the server insists.
+function newId(prefix){
+  return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+function countHanzi(s){ return Array.from(s).filter(c => HANZI_RE.test(c)).length; }
+
+// An own word becomes an item like the bank's. "sentence" is a guess from the
+// shape — long, or with punctuation — and decides speed and de2hz, as for the
+// bank's own sentence cards.
+function customItem(id, w){
+  const plain = w.hanzi.replace(/\s/g, '');
+  const sentence = countHanzi(plain) > 4 || countHanzi(plain) !== Array.from(plain).length;
+  return { id, hanzi: w.hanzi, pinyin: w.pinyin || '', meaning: w.meaning || '',
+    level: 0, type: sentence ? 'sentence' : 'word', custom: true };
+}
+function rebuildIndex(){
+  ITEM_BY_ID = new Map(ITEMS.map(it => [it.id, it]));
+  for(const [id, w] of Object.entries(vocab.words)) ITEM_BY_ID.set(id, customItem(id, w));
+}
+
+function listsByAge(){ return vocab.lists.slice().sort((a, b) => a.created - b.created); }
+
+function activeSources(){
+  const valid = new Set(SOURCE_CHIPS.map(s => s.id).concat(vocab.lists.map(l => l.id)));
+  const list = (vocab.sources || DEFAULT_SOURCES).filter(s => valid.has(s));
+  return list.length ? list : DEFAULT_SOURCES;
+}
+
+// Items in the active sources: bank first in ITEMS order, then the lists
+// oldest first. An item in several sources appears once.
+function deckItems(){
+  const src = new Set(activeSources());
+  const out = [];
+  const seen = new Set();
+  const add = (it) => { if(it && !seen.has(it.id)){ seen.add(it.id); out.push(it); } };
+  for(const it of ITEMS){
+    if(it.type === 'sentence' ? src.has('sent') : src.has('hsk' + it.level)) add(it);
+  }
+  for(const l of listsByAge()) if(src.has(l.id)) for(const id of l.items) add(ITEM_BY_ID.get(id));
+  return out;
+}
+
+function newestActiveList(){
+  const src = new Set(activeSources());
+  const ls = listsByAge().filter(l => src.has(l.id));
+  return ls.length ? ls[ls.length - 1] : null;
+}
+
+// The list a custom item is shown under: the newest enabled one holding it.
+function listOf(itemId){
+  const src = new Set(activeSources());
+  return listsByAge().reverse().find(l => src.has(l.id) && l.items.includes(itemId)) || null;
+}
+
+// Pinyin for one character of an own word, when the word's pinyin is spaced
+// so that syllables line up with characters. Otherwise unknown.
+function syllableAt(word, i){
+  const parts = word.pinyin.trim().split(/[\s']+/).filter(Boolean);
+  return parts.length === countHanzi(word.hanzi) ? parts[i] : '';
+}
+
+// Zeichen cards: one per distinct character across the active word items, in
+// order of first appearance, so a course's characters arrive in course order.
+// Sentence cards contribute nothing: their characters are drilled as words.
+function charItems(words){
+  const out = new Map();
+  for(const w of words){
+    if(w.type !== 'word') continue;
+    let i = 0;
+    for(const c of Array.from(w.hanzi)){
+      if(!HANZI_RE.test(c)) continue;
+      if(!out.has(c)){
+        const info = CHARS[c];
+        out.set(c, { id: 'z' + c, hanzi: c, char: c, type: 'char', level: w.level,
+          custom: !!w.custom, pinyin: info ? info.py : syllableAt(w, i),
+          meaning: info ? info.de : '', word: w });
+      }
+      i++;
     }
   }
-  shuffle(due);
-  shuffle(fresh);
+  return out;
+}
+
+// Every card of the current deck, across the enabled modes. Queue building,
+// stats and "keep practising" all walk this, so none of them can disagree
+// about what the deck is.
+function deckCards(){
+  const words = deckItems();
+  CHAR_ITEMS = charItems(words);
+  const cards = [];
+  for(const mode of enabledModes){
+    const items = mode === 'zeichen' ? Array.from(CHAR_ITEMS.values()) : words;
+    for(const it of items){
+      if(modeApplies(mode, it)) cards.push({ key: cardKey(it.id, mode), item: it, mode });
+    }
+  }
+  return cards;
+}
+
+function lookupItem(id){
+  if(id.startsWith('z') && CHAR_ITEMS.has(id.slice(1))) return CHAR_ITEMS.get(id.slice(1));
+  return ITEM_BY_ID.get(id) || null;
+}
+
+function buildQueue(){
+  const now = Date.now();
+  // A freshly added lesson is what the learner wants to drill right now, so
+  // its new cards skip the per-session cap. Everything else stays capped.
+  const newest = newestActiveList();
+  const urgentIds = new Set(newest ? newest.items : []);
+  const urgentChars = new Set();
+  for(const id of urgentIds){
+    const it = ITEM_BY_ID.get(id);
+    if(it && it.type === 'word') for(const c of Array.from(it.hanzi)) urgentChars.add(c);
+  }
+  const due = [], urgent = [], freshWords = [], freshChars = [];
+  for(const c of deckCards()){
+    const e = progress[c.key];
+    if(e){
+      if((e.next || 0) <= now) due.push(c.key);
+      continue;
+    }
+    const isUrgent = c.mode === 'zeichen' ? urgentChars.has(c.item.char) : urgentIds.has(c.item.id);
+    if(isUrgent) urgent.push(c.key);
+    else if(c.mode === 'zeichen') freshChars.push(c.key);
+    else freshWords.push(c.key);
+  }
+  shuffle(freshWords);
+  // New characters keep their order of first appearance (simple ones first,
+  // in course order), interleaved with the shuffled new word cards.
+  const fresh = [];
+  for(let i = 0; fresh.length < NEW_PER_SESSION && (i < freshWords.length || i < freshChars.length); i++){
+    if(i < freshChars.length) fresh.push(freshChars[i]);
+    if(i < freshWords.length && fresh.length < NEW_PER_SESSION) fresh.push(freshWords[i]);
+  }
   // Mixed, not blocked by mode: reviews and new cards interleave.
-  queue = shuffle(due.concat(fresh.slice(0, NEW_PER_SESSION)));
+  queue = shuffle(due.concat(urgent, fresh));
   qIndex = 0;
 }
 
+// Skips keys whose item has gone (a word removed from a list mid-session), so
+// a stale queue entry never ends the session early.
 function currentCard(){
-  if(qIndex >= queue.length) return null;
-  const { id, mode } = parseKey(queue[qIndex]);
-  const item = ITEMS.find(it => it.id === id);
-  return item ? { item, mode, key: queue[qIndex] } : null;
+  while(qIndex < queue.length){
+    const { id, mode } = parseKey(queue[qIndex]);
+    const item = lookupItem(id);
+    if(item) return { item, mode, key: queue[qIndex] };
+    qIndex++;
+  }
+  return null;
 }
 
 function currentItem(){
@@ -1082,17 +1839,14 @@ function renderStats(){
   let dueCount = 0;
   let total = 0;
   const boxCounts = [0,0,0,0,0,0]; // 0 = not yet seen
-  // Counts follow the enabled modes, so turning a mode off shrinks the deck
-  // rather than leaving phantom cards in the totals.
-  for(const mode of enabledModes){
-    for(const it of ITEMS){
-      if(!modeApplies(mode, it)) continue;
-      total++;
-      const e = progress[cardKey(it.id, mode)];
-      if(!e){ boxCounts[0]++; dueCount++; continue; }
-      boxCounts[e.box]++;
-      if((e.next || 0) <= now) dueCount++;
-    }
+  // Counts follow the enabled modes and sources, so turning one off shrinks
+  // the deck rather than leaving phantom cards in the totals.
+  for(const c of deckCards()){
+    total++;
+    const e = progress[c.key];
+    if(!e){ boxCounts[0]++; dueCount++; continue; }
+    boxCounts[e.box]++;
+    if((e.next || 0) <= now) dueCount++;
   }
   // Only the due count earns a place in the top bar; the rest is status.
   document.getElementById('stats').innerHTML = `<span>Fällig: <b>${dueCount}</b></span>`;
@@ -1110,32 +1864,103 @@ function renderStats(){
   }
 }
 
+function chipButton(label, on, onclick, extraClass){
+  const b = document.createElement('button');
+  b.className = 'mode-chip' + (on ? ' on' : '') + (extraClass ? ' ' + extraClass : '');
+  b.textContent = label; // textContent, not innerHTML: list names are user input
+  if(on !== null) b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  b.onclick = onclick;
+  return b;
+}
+
+function afterDeckChange(){
+  buildQueue();
+  revealed = false;
+  render();
+}
+
 function renderModeChips(){
   const el = document.getElementById('modeChips');
   if(!el) return;
   el.innerHTML = '';
   for(const m of MODES){
     const on = enabledModes.includes(m.id);
-    const b = document.createElement('button');
-    b.className = 'mode-chip' + (on ? ' on' : '');
-    b.textContent = m.chip;
-    b.setAttribute('aria-pressed', on ? 'true' : 'false');
-    b.onclick = () => {
+    el.appendChild(chipButton(m.chip, on, () => {
       const next = on ? enabledModes.filter(x => x !== m.id) : enabledModes.concat([m.id]);
       if(!next.length) return; // never leave the deck with no modes at all
       enabledModes = MODE_IDS.filter(x => next.includes(x)); // keep canonical order
       saveModes();
-      buildQueue();
-      revealed = false;
-      render();
-    };
-    el.appendChild(b);
+      afterDeckChange();
+    }));
   }
 }
 
+// Sources: the bank's levels, sentence cards, then one chip per own list.
+// "＋ Liste" starts a new list and opens it; "bearbeiten" opens the newest.
+function renderSourceChips(){
+  const el = document.getElementById('sourceChips');
+  if(!el) return;
+  el.innerHTML = '';
+  const active = activeSources();
+  const chips = SOURCE_CHIPS.map(s => ({ id: s.id, label: s.chip }))
+    .concat(listsByAge().map(l => ({ id: l.id, label: l.name })));
+  for(const c of chips){
+    const on = active.includes(c.id);
+    el.appendChild(chipButton(c.label, on, () => {
+      const next = on ? active.filter(x => x !== c.id) : active.concat([c.id]);
+      if(!next.length) return; // at least one source stays on
+      vocab.sources = next;
+      saveVocab();
+      afterDeckChange();
+    }));
+  }
+  el.appendChild(chipButton('＋ Liste', null, () => {
+    const list = { id: newId('l'), name: 'Lektion ' + (vocab.lists.length + 1), created: Date.now(), items: [] };
+    vocab.lists.push(list);
+    vocab.sources = activeSources().concat([list.id]);
+    saveVocab();
+    openEditor(list.id);
+  }, 'add'));
+  if(vocab.lists.length){
+    el.appendChild(chipButton('bearbeiten', null, () => {
+      const newest = listsByAge().pop();
+      openEditor(newest.id);
+    }, 'add'));
+  }
+}
+
+// Tag text for the seal stamp: HSK level for the bank, list name for own words.
+function itemTag(item){
+  const base = item.type === 'char' ? item.word : item;
+  if(base.custom){
+    const l = listOf(base.id);
+    return l ? l.name : 'Eigene';
+  }
+  return 'HSK' + base.level;
+}
+
+// Prompt of a Zeichen card: the source word with the character blanked out,
+// its pinyin and meaning, and the character's own gloss when it differs.
+function zeichenPromptHtml(it){
+  const w = it.word;
+  const single = countHanzi(w.hanzi) === 1;
+  const blanked = Array.from(w.hanzi).map(c => c === it.char ? '＿' : c).join('');
+  const gloss = !single && it.meaning ? `<div class="pz-gloss">Zeichen: ${esc(it.meaning)}</div>` : '';
+  return `
+    <div class="prompt-zi">
+      ${single ? '' : `<div class="pz-word">${esc(blanked)}</div>`}
+      <div class="pz-py">${esc(single && it.pinyin ? it.pinyin : w.pinyin)}</div>
+      <div class="pz-de">${esc(w.meaning)}</div>
+      ${gloss}
+    </div>`;
+}
+
 function render(){
+  stopWriters();
   renderStats();
+  renderSourceChips();
   renderModeChips();
+  if(editing){ renderEditor(); return; }
   const cardEl = document.getElementById('card');
   const card = currentCard();
   const item = card && card.item;
@@ -1149,11 +1974,7 @@ function render(){
       </div>
     `;
     document.getElementById('extraBtn').onclick = () => {
-      const all = [];
-      for(const mode of enabledModes) for(const it of ITEMS){
-        if(modeApplies(mode, it)) all.push(cardKey(it.id, mode));
-      }
-      queue = shuffle(all);
+      queue = shuffle(deckCards().map(c => c.key));
       qIndex = 0;
       revealed = false;
       render();
@@ -1164,19 +1985,26 @@ function render(){
   }
 
   const mode = modeInfo(card.mode);
-  const tagLabel = `HSK${item.level} · ${item.type === 'word' ? 'Wort' : 'Satz'} · ${mode.tag}`;
+  const kindLabel = item.type === 'char' ? 'Zeichen' : item.type === 'word' ? 'Wort' : 'Satz';
+  const tagLabel = item.type === 'char'
+    ? `${itemTag(item)} · Zeichen`
+    : `${itemTag(item)} · ${kindLabel} · ${mode.tag}`;
 
   // What the card shows before the reveal. "listen" gives away nothing but the
-  // audio; the other two show one side and ask for the other. Audio stays
+  // audio; the others show one side and ask for the other. Audio stays
   // available everywhere, deliberately — in de2hz it's a pronunciation hint,
   // and using it is the learner's call.
   const promptHtml =
-    card.mode === 'de2hz' ? `<div class="prompt-de">${item.meaning}</div>` :
-    card.mode === 'hz2de' ? `<div class="prompt-hz">${item.hanzi}</div>` : '';
+    card.mode === 'de2hz' ? `<div class="prompt-de">${esc(item.meaning)}</div>` :
+    card.mode === 'hz2de' ? `<div class="prompt-hz">${esc(item.hanzi)}</div>` :
+    card.mode === 'zeichen' ? zeichenPromptHtml(item) : '';
 
   const format = answerFormat(card.mode);
   const wantsWriting = format === 'canvas';
-  const askLabel = mode.ask;
+  // A character never seen before can't be recalled, only learned: it opens
+  // already shown, then gets traced over its outline.
+  const study = format === 'stroke' && !progress[card.key];
+  const askLabel = study ? 'Schau dir die Strichfolge an, dann schreib nach.' : mode.ask;
 
   const pinyinHtml = `
     <div class="grid-input-wrap">
@@ -1187,26 +2015,24 @@ function render(){
     </div>
   `;
 
-  const answerAreaHtml = wantsWriting ? `
-    <div class="grid-input-wrap">
+  const strokeHtml = `
+    <div class="grid-input-wrap" id="strokeWrap">
       <div class="grid-label">${askLabel}</div>
-      <div class="write-grid" id="writeGrid"></div>
+      <div class="hw-cell" id="hwCell"></div>
       <div class="write-bar">
-        <span class="write-pager" id="writePager">
-          <button class="write-tool" id="prevCharBtn" aria-label="Vorheriges Zeichen">‹</button>
-          <span class="write-pos" id="writePos"></span>
-          <button class="write-tool" id="nextCharBtn" aria-label="Nächstes Zeichen">›</button>
-        </span>
-        <button class="write-tool" id="undoBtn" aria-label="Letzten Strich zurücknehmen">↶</button>
-        <button class="write-tool" id="clearBtn" aria-label="Alles löschen">löschen</button>
+        <span class="hw-status" id="hwStatus"></span>
+        <button class="write-tool" id="hwRestart">neu</button>
       </div>
     </div>
-  ` : format === 'pinyin'
-    ? pinyinHtml
+  `;
+
+  const answerAreaHtml = wantsWriting ? canvasAreaHtml(askLabel)
+    : format === 'stroke' ? strokeHtml
+    : format === 'pinyin' ? pinyinHtml
     : `<div class="prompt-hint">${mode.ask} Überleg dir die Antwort, dann aufdecken.</div>`;
 
   cardEl.innerHTML = `
-    <div class="tag">${tagLabel}</div>
+    <div class="tag">${esc(tagLabel)}</div>
     ${promptHtml}
     <div class="controls-row">
       <button class="play-btn" id="playBtn" aria-label="Abspielen">
@@ -1217,7 +2043,7 @@ function render(){
 
     ${answerAreaHtml}
 
-    <button class="reveal-btn" id="revealBtn">Antwort zeigen</button>
+    <button class="reveal-btn" id="revealBtn"${study ? ' style="display:none"' : ''}>Antwort zeigen</button>
 
     <div id="answerBox"></div>
   `;
@@ -1237,10 +2063,30 @@ function render(){
   };
   document.getElementById('revealBtn').onclick = () => {
     revealed = true;
-    showAnswer(item);
+    if(hw) hw.reveal();
+    showAnswer(card);
   };
 
-  if(revealed) showAnswer(item);
+  if(format === 'stroke') setupStroke(card, study);
+  else if(revealed) showAnswer(card);
+}
+
+function canvasAreaHtml(askLabel){
+  return `
+    <div class="grid-input-wrap">
+      <div class="grid-label">${askLabel}</div>
+      <div class="write-grid" id="writeGrid"></div>
+      <div class="write-bar">
+        <span class="write-pager" id="writePager">
+          <button class="write-tool" id="prevCharBtn" aria-label="Vorheriges Zeichen">‹</button>
+          <span class="write-pos" id="writePos"></span>
+          <button class="write-tool" id="nextCharBtn" aria-label="Nächstes Zeichen">›</button>
+        </span>
+        <button class="write-tool" id="undoBtn" aria-label="Letzten Strich zurücknehmen">↶</button>
+        <button class="write-tool" id="clearBtn" aria-label="Alles löschen">löschen</button>
+      </div>
+    </div>
+  `;
 }
 
 // ---- Handwriting input -----------------------------------------------------
@@ -1437,10 +2283,48 @@ window.addEventListener('resize', () => {
   if(sizeCell(cell)) redrawCell(cell);
 });
 
-function showAnswer(item){
+const GRADE_ROW_HTML = `
+  <div class="grade-row">
+    <button class="grade-btn again" id="gAgain">Nochmal</button>
+    <button class="grade-btn good" id="gGood">Gut</button>
+    <button class="grade-btn easy" id="gEasy">Einfach</button>
+  </div>`;
+
+function bindGrades(){
+  const a = document.getElementById('gAgain');
+  if(!a) return;
+  a.onclick = () => grade('again');
+  document.getElementById('gGood').onclick = () => grade('good');
+  document.getElementById('gEasy').onclick = () => grade('easy');
+}
+
+function showAnswer(card, opts = {}){
+  const item = card.item;
   const box = document.getElementById('answerBox');
   const revealBtn = document.getElementById('revealBtn');
-  if(revealBtn) revealBtn.style.display = 'none';
+  if(revealBtn && !opts.study) revealBtn.style.display = 'none';
+
+  // Zeichen: the cell above already shows the character, so the answer is
+  // just its reading and its breakdown — which takes the example sentence's
+  // place, keeping the card within one phone screen. In the study state the
+  // grade buttons wait until the character has been traced.
+  if(card.mode === 'zeichen'){
+    const big = hw ? '' : `<p class="hanzi">${esc(item.hanzi)}</p>`;
+    // For a one-character word the prompt already said exactly this.
+    const reading = countHanzi(item.word.hanzi) === 1 ? ''
+      : [item.pinyin, item.meaning].filter(Boolean).map(esc).join(' · ');
+    box.innerHTML = `
+      <div class="answer zi-answer">
+        ${big}
+        ${reading ? `<p class="pinyin">${reading}</p>` : ''}
+        ${charNoteHtml(item.char)}
+        ${opts.study ? '' : GRADE_ROW_HTML}
+      </div>
+    `;
+    bindGrades();
+    return;
+  }
+
   // Beispielsatz nur bei Wörtern: bei Satzkarten wäre er redundant.
   const ex = item.type === 'word' ? EXAMPLES[item.id] : null;
   const exampleHtml = ex ? `
@@ -1451,31 +2335,506 @@ function showAnswer(item){
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3z"/></svg>
         </button>
       </div>
-      <p class="example-hz">${ex.hanzi}</p>
-      <p class="example-py">${ex.pinyin}</p>
-      <p class="example-de">${ex.meaning}</p>
+      <p class="example-hz">${esc(ex.hanzi)}</p>
+      <p class="example-py">${esc(ex.pinyin)}</p>
+      <p class="example-de">${esc(ex.meaning)}</p>
     </div>
   ` : '';
+  // Each character of the answer is tappable and opens its breakdown inline.
+  // Untouched, it reads like plain text — the underline is the only hint.
+  const hanziHtml = Array.from(item.hanzi)
+    .map(c => HANZI_RE.test(c) ? `<span class="zi" data-c="${esc(c)}">${esc(c)}</span>` : esc(c))
+    .join('');
   box.innerHTML = `
     <div class="answer">
-      <p class="hanzi">${item.hanzi}</p>
-      <p class="pinyin">${item.pinyin}</p>
-      <p class="meaning">${item.meaning}</p>
+      <p class="hanzi" id="answerHanzi">${hanziHtml}</p>
+      <div id="ziPanel"></div>
+      <p class="pinyin">${esc(item.pinyin)}</p>
+      <p class="meaning">${esc(item.meaning)}</p>
       ${exampleHtml}
-      <div class="grade-row">
-        <button class="grade-btn again" id="gAgain">Nochmal</button>
-        <button class="grade-btn good" id="gGood">Gut</button>
-        <button class="grade-btn easy" id="gEasy">Einfach</button>
-      </div>
+      ${GRADE_ROW_HTML}
     </div>
   `;
   const exBtn = document.getElementById('examplePlay');
   // Der Beispielsatz ist ein Satz, auch wenn die Karte ein Wort ist — daher
   // Satztempo statt currentRate(), das sich am Kartentyp orientiert.
   if(exBtn) exBtn.onclick = () => speak(ex.hanzi, slowMode ? RATE_SLOW : RATE_SENTENCE);
-  document.getElementById('gAgain').onclick = () => grade('again');
-  document.getElementById('gGood').onclick = () => grade('good');
-  document.getElementById('gEasy').onclick = () => grade('easy');
+  document.getElementById('answerHanzi').onclick = (e) => {
+    const t = e.target.closest('.zi');
+    if(t) toggleZiPanel(t);
+  };
+  bindGrades();
+}
+
+// ---- Character breakdown ---------------------------------------------------
+// One seal-red margin note per character: kind, components, origin. Same
+// visual language as the example sentence.
+function charNoteHtml(c, opts = {}){
+  const info = CHARS[c];
+  const label = info && info.kind ? `${esc(c)} · ${esc(info.kind)}` : esc(c);
+  let body;
+  if(!info){
+    body = `<p class="example-de">Herkunft noch nicht erfasst.</p>`;
+  } else {
+    const parts = (info.parts || []).map(p =>
+      // A pure sound carrier needs no "Lautteil" label next to "Klang …".
+      `<span class="zi-part"><b>${esc(p[0])}</b>${p[2] && p[1] === 'Lautteil' ? '' : ' ' + esc(p[1])}${p[2] ? ` <i>Klang ${esc(p[2])}</i>` : ''}</span>`
+    ).join('<span class="zi-plus">+</span>');
+    body = (parts ? `<p class="zi-parts">${parts}</p>` : '')
+      + `<p class="example-de">${esc(info.story || 'Herkunft umstritten.')}</p>`;
+  }
+  return `
+    <div class="example zi-note">
+      ${opts.anim ? '<div class="zi-anim" id="ziAnim"></div>' : ''}
+      <div class="zi-note-body">
+        <div class="example-head"><span class="example-label">${label}</span></div>
+        ${body}
+      </div>
+    </div>`;
+}
+
+let ziOpen = null;   // the .zi span whose panel is open
+let ziWriter = null; // its looping stroke animation
+
+function toggleZiPanel(span){
+  const panel = document.getElementById('ziPanel');
+  if(!panel) return;
+  const wasOpen = ziOpen === span;
+  closeZiPanel();
+  if(wasOpen) return;
+  ziOpen = span;
+  span.classList.add('on');
+  panel.innerHTML = charNoteHtml(span.dataset.c, { anim: !!window.HanziWriter });
+  const anim = document.getElementById('ziAnim');
+  if(anim){
+    ziWriter = makeWriter(anim, span.dataset.c, 76, {
+      showOutline: true, delayBetweenLoops: 1500,
+      onLoadCharDataError: () => { anim.remove(); },
+    });
+    ziWriter.loopCharacterAnimation();
+  }
+}
+function closeZiPanel(){
+  if(ziWriter){ try{ ziWriter.pauseAnimation(); }catch(e){} ziWriter = null; }
+  if(ziOpen) ziOpen.classList.remove('on');
+  ziOpen = null;
+  const panel = document.getElementById('ziPanel');
+  if(panel) panel.innerHTML = '';
+}
+
+// ---- Stroke-order writing (Hanzi Writer) -----------------------------------
+// Library and stroke data come from jsDelivr at pinned versions — the one
+// runtime dependency besides Google Fonts. If either is unreachable the card
+// falls back to the freehand canvas, so a Zeichen card never dead-ends.
+const HW_DATA = 'https://cdn.jsdelivr.net/npm/hanzi-writer-data@2.0.1/';
+const HW_COLORS = {
+  strokeColor: '#211f1a',
+  radicalColor: '#b3352a',   // the radical shows up in seal red
+  outlineColor: '#ddd6c6',
+  drawingColor: '#211f1a',
+  highlightColor: '#3d6a55',
+};
+function hwLoader(char, onLoad, onError){
+  fetch(HW_DATA + encodeURIComponent(char) + '.json')
+    .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
+    .then(onLoad, onError);
+}
+function makeWriter(el, char, size, opts){
+  return HanziWriter.create(el, char, Object.assign({
+    width: size, height: size, padding: Math.round(size * 0.05),
+    renderer: 'svg', charDataLoader: hwLoader,
+  }, HW_COLORS, opts));
+}
+
+let hw = null; // { writer, reveal() } for the current Zeichen card
+
+function stopWriters(){
+  closeZiPanel();
+  if(hw){ hw.stop(); hw = null; }
+}
+
+function setupStroke(card, study){
+  const cellEl = document.getElementById('hwCell');
+  const statusEl = document.getElementById('hwStatus');
+  if(!window.HanziWriter) return strokeFallback(card);
+
+  const size = Math.round(cellEl.clientWidth) || 280;
+  let alive = true;
+  let failed = false;
+  const writer = makeWriter(cellEl, card.item.char, size, {
+    showCharacter: false,
+    showOutline: study,
+    strokeAnimationSpeed: 1,
+    delayBetweenStrokes: 250,
+    drawingWidth: Math.max(12, Math.round(size / 20)),
+    onLoadCharDataError: () => {
+      failed = true;
+      if(alive && hw && hw.writer === writer){ hw = null; strokeFallback(card); }
+    },
+  });
+  const setStatus = (t) => { if(statusEl) statusEl.textContent = t; };
+
+  const startQuiz = () => {
+    setStatus('');
+    writer.quiz({
+      showHintAfterMisses: 3,
+      onMistake: (d) => setStatus(d.totalMistakes === 1 ? '1 Fehler' : d.totalMistakes + ' Fehler'),
+      onComplete: (d) => {
+        if(!alive) return;
+        setStatus(d.totalMistakes === 0 ? 'Fehlerfrei!' : 'Fertig · ' + d.totalMistakes + ' Fehler');
+        revealed = true;
+        showAnswer(card);
+      },
+    });
+  };
+
+  hw = {
+    writer,
+    stop(){ alive = false; try{ writer.cancelQuiz(); writer.pauseAnimation(); }catch(e){} },
+    // "Antwort zeigen" mid-quiz: stop checking, write it out once.
+    reveal(){
+      if(failed) return;
+      try{ writer.cancelQuiz(); }catch(e){}
+      writer.hideCharacter();
+      writer.animateCharacter();
+    },
+  };
+
+  document.getElementById('hwRestart').onclick = () => {
+    if(failed) return;
+    try{ writer.cancelQuiz(); }catch(e){}
+    writer.hideCharacter();
+    if(study || revealed) writer.showOutline();
+    startQuiz();
+  };
+
+  if(revealed){
+    // Re-render of an answered card (e.g. a chip was toggled): just show it.
+    writer.showCharacter();
+    showAnswer(card);
+  } else if(study){
+    showAnswer(card, { study: true });
+    writer.animateCharacter({
+      onComplete: () => {
+        if(!alive) return;
+        writer.hideCharacter();
+        startQuiz();
+      },
+    });
+  } else {
+    startQuiz();
+  }
+}
+
+// No library or no stroke data for this character: freehand canvas instead,
+// graded on reveal like a Schreiben card.
+function strokeFallback(card){
+  const wrap = document.getElementById('strokeWrap');
+  if(!wrap) return;
+  wrap.outerHTML = canvasAreaHtml('Strichfolge gerade nicht verfügbar (offline?) — schreib frei, dann aufdecken.');
+  buildWriteGrid(card.item);
+  const revealBtn = document.getElementById('revealBtn');
+  if(revealBtn) revealBtn.style.display = '';
+  const box = document.getElementById('answerBox');
+  if(box) box.innerHTML = '';
+  if(revealed) showAnswer(card);
+}
+
+// ---- List editor -----------------------------------------------------------
+// Replaces the card while open; "Fertig" returns to practice. Words come in
+// through one paste box: typed, or text copied from a photo of the textbook
+// (Live Text / Google Lens), then checked in an editable preview.
+let editing = null;  // id of the list being edited
+let preview = [];    // parsed rows awaiting "übernehmen"
+let pasteDraft = ''; // survives re-renders of the editor
+
+function openEditor(listId){
+  editing = listId;
+  preview = [];
+  pasteDraft = '';
+  setDetails(false);
+  render();
+}
+
+function bankIdFor(hanzi){
+  const it = ITEMS.find(x => x.hanzi === hanzi);
+  return it ? it.id : null;
+}
+
+// Drop own words no list refers to any more. Their progress stays in the
+// progress file; it simply stops being scheduled.
+function pruneWords(){
+  const used = new Set(vocab.lists.flatMap(l => l.items));
+  for(const id of Object.keys(vocab.words)) if(!used.has(id)) delete vocab.words[id];
+  rebuildIndex();
+}
+
+function renderEditor(){
+  const cardEl = document.getElementById('card');
+  const list = vocab.lists.find(l => l.id === editing);
+  if(!list){ editing = null; render(); return; }
+  const draftEl = document.getElementById('edPaste');
+  if(draftEl) pasteDraft = draftEl.value;
+
+  const options = listsByAge().map(l =>
+    `<option value="${esc(l.id)}"${l.id === list.id ? ' selected' : ''}>${esc(l.name)}</option>`).join('');
+  const rows = list.items.map(id => {
+    const it = ITEM_BY_ID.get(id);
+    if(!it) return '';
+    return `<li class="ed-word">
+      <span class="ed-hz">${esc(it.hanzi)}</span>
+      <span class="ed-py">${esc(it.pinyin)}</span>
+      <span class="ed-de">${esc(it.meaning)}</span>
+      <button class="ed-x" data-id="${esc(id)}" aria-label="Entfernen">×</button>
+    </li>`;
+  }).join('');
+  const previewRows = preview.map((r, i) => r.bank
+    ? `<li class="ed-word ed-prev">
+        <span class="ed-hz">${esc(r.hanzi)}</span>
+        <span class="ed-py">${esc(r.pinyin)}</span>
+        <span class="ed-de">${esc(r.meaning)} <i class="ed-note">aus der Wortbank</i></span>
+        <button class="ed-x" data-i="${i}" aria-label="Verwerfen">×</button>
+      </li>`
+    : `<li class="ed-word ed-prev">
+        <input class="ed-in ed-hz" data-i="${i}" data-f="hanzi" value="${esc(r.hanzi)}" aria-label="Hanzi">
+        <input class="ed-in ed-py" data-i="${i}" data-f="pinyin" value="${esc(r.pinyin)}" placeholder="pinyin" aria-label="Pinyin">
+        <input class="ed-in ed-de" data-i="${i}" data-f="meaning" value="${esc(r.meaning)}" placeholder="deutsch" aria-label="Deutsch">
+        <button class="ed-x" data-i="${i}" aria-label="Verwerfen">×</button>
+      </li>`).join('');
+
+  cardEl.innerHTML = `
+    <div class="tag">Meine Listen</div>
+    <div class="ed-top">
+      ${vocab.lists.length > 1 ? `<select class="ed-select" id="edList" aria-label="Liste wählen">${options}</select>` : ''}
+      <input class="ed-name" id="edName" maxlength="40" value="${esc(list.name)}" aria-label="Name der Liste">
+    </div>
+    <div class="grid-label">${list.items.length} ${list.items.length === 1 ? 'Wort' : 'Wörter'}</div>
+    <ul class="ed-words" id="edWords">${rows || '<li class="ed-empty">Noch leer.</li>'}</ul>
+
+    <div class="grid-label">Wörter einfügen — eins pro Zeile, z. B. „你好 ni3 hao3 Hallo“. Text aus einem Foto der Vokabelliste geht auch.</div>
+    <textarea class="grid-paper ed-paste" id="edPaste" rows="3"
+      autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"
+      placeholder="你好 nǐ hǎo Hallo"></textarea>
+    <div class="write-bar"><button class="write-tool" id="edParse">prüfen</button></div>
+
+    ${preview.length ? `
+      <div class="grid-label ed-gap">Vorschau — bitte kontrollieren</div>
+      <ul class="ed-words" id="edPreview">${previewRows}</ul>
+      <div class="write-bar">
+        <button class="write-tool" id="edDiscard">verwerfen</button>
+        <button class="write-tool ed-ok" id="edAdd">${preview.length} übernehmen</button>
+      </div>` : ''}
+
+    <div class="ed-foot">
+      <button class="write-tool ed-danger" id="edDelete">Liste löschen</button>
+      <button class="primary-btn" id="edDone">Fertig</button>
+    </div>
+  `;
+  document.getElementById('edPaste').value = pasteDraft;
+
+  const sel = document.getElementById('edList');
+  if(sel) sel.onchange = () => { editing = sel.value; preview = []; pasteDraft = ''; renderEditor(); };
+  document.getElementById('edName').onchange = (e) => {
+    const name = e.target.value.trim().slice(0, 40);
+    if(name){ list.name = name; saveVocab(); renderSourceChips(); }
+    else e.target.value = list.name;
+  };
+  document.getElementById('edWords').onclick = (e) => {
+    const b = e.target.closest('.ed-x');
+    if(!b) return;
+    list.items = list.items.filter(x => x !== b.dataset.id);
+    pruneWords();
+    saveVocab();
+    render();
+  };
+  document.getElementById('edParse').onclick = () => {
+    const rows = parsePaste(document.getElementById('edPaste').value);
+    const known = new Set(preview.map(r => r.hanzi));
+    for(const r of rows) if(!known.has(r.hanzi)){ known.add(r.hanzi); preview.push(r); }
+    document.getElementById('edPaste').value = '';
+    pasteDraft = '';
+    renderEditor();
+  };
+  const prevEl = document.getElementById('edPreview');
+  if(prevEl){
+    prevEl.oninput = (e) => {
+      const t = e.target;
+      if(t.dataset.f) preview[Number(t.dataset.i)][t.dataset.f] = t.value;
+    };
+    prevEl.onclick = (e) => {
+      const b = e.target.closest('.ed-x');
+      if(!b) return;
+      preview.splice(Number(b.dataset.i), 1);
+      renderEditor();
+    };
+    document.getElementById('edDiscard').onclick = () => { preview = []; renderEditor(); };
+    document.getElementById('edAdd').onclick = () => { commitPreview(list); render(); };
+  }
+  document.getElementById('edDelete').onclick = () => {
+    if(!confirm(`Liste „${list.name}“ löschen? Der Lernstand der Wörter bleibt gespeichert.`)) return;
+    vocab.lists = vocab.lists.filter(l => l.id !== list.id);
+    if(vocab.sources) vocab.sources = vocab.sources.filter(s => s !== list.id);
+    pruneWords();
+    saveVocab();
+    editing = null;
+    afterDeckChange();
+  };
+  document.getElementById('edDone').onclick = () => {
+    editing = null;
+    preview = [];
+    pasteDraft = '';
+    afterDeckChange();
+  };
+}
+
+function commitPreview(list){
+  for(const r of preview){
+    if(list.items.length >= LIST_MAX_ITEMS) break;
+    const hanzi = r.hanzi.trim().slice(0, 30);
+    if(!hanzi || !countHanzi(hanzi)) continue;
+    // Bank words keep their id, so a lesson word that is also in HSK1
+    // shares one progress history instead of being learned twice.
+    let id = bankIdFor(hanzi);
+    if(!id){
+      id = Object.keys(vocab.words).find(k => vocab.words[k].hanzi === hanzi) || newId('u');
+      vocab.words[id] = {
+        hanzi,
+        pinyin: numToMarks(r.pinyin.trim()).slice(0, 80),
+        meaning: r.meaning.trim().slice(0, 120),
+      };
+    }
+    if(!list.items.includes(id)) list.items.push(id);
+  }
+  preview = [];
+  rebuildIndex();
+  saveVocab();
+}
+
+// ---- Paste parser ----------------------------------------------------------
+// Lenient on purpose: input is typed on a phone or copied out of a photo of a
+// vocab table. Handles "你好 nǐ hǎo Hallo", tone numbers ("ni3 hao3"),
+// toneless pinyin, and tables that come out of OCR one column per line
+// (hanzi, then pinyin, then German on the following lines). Lines without
+// hanzi that don't continue a word — headings, page numbers — are dropped.
+const CJK = '\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff';
+const HANZI_RUN = new RegExp(`[${CJK}][${CJK}\\u3000-\\u303f\\uff01-\\uff1f…·]*`);
+const TONED = /[āáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜ]|[a-zü]\d/i;
+
+function toneless(s){
+  return s.toLowerCase().normalize('NFD')
+    .replace(/u\u0308|ü|u:/g, 'v')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[1-5]/g, '');
+}
+
+// Number of pinyin syllables in a token, or 0 if it isn't pinyin.
+function syllableCount(tok){
+  let total = 0;
+  for(const part of toneless(tok).split(/['’\-]/)){
+    if(!part) continue;
+    if(!/^[a-z]+$/.test(part)) return 0;
+    // Fewest syllables that cover the string exactly ("xian" is one, not xi+an).
+    const best = new Array(part.length + 1).fill(Infinity);
+    best[0] = 0;
+    for(let i = 1; i <= part.length; i++){
+      for(let k = Math.max(0, i - 6); k < i; k++){
+        if(best[k] + 1 < best[i] && PINYIN_SYLLABLES.has(part.slice(k, i))) best[i] = best[k] + 1;
+      }
+    }
+    if(best[part.length] === Infinity) return 0;
+    total += best[part.length];
+  }
+  return total;
+}
+
+function cleanMeaning(s){ return s.replace(/^[\s\-–—:=,;|/]+|[\s\-–—:=,;|/]+$/g, '').trim(); }
+
+// Splits "nǐ hǎo Hallo" into pinyin and German, for a word of n characters.
+function splitPinyin(rest, n){
+  const toks = Array.from(rest.matchAll(/[^\s,;|/]+/g));
+  const cut = (end) => ({
+    pinyin: numToMarks(rest.slice(0, end).trim()),
+    meaning: cleanMeaning(rest.slice(end)),
+  });
+  // 1. The shortest run of leading tokens whose syllables add up to exactly
+  //    the character count. Works with or without tones.
+  let count = 0;
+  for(const t of toks){
+    const k = syllableCount(t[0]);
+    if(!k) break;
+    count += k;
+    if(count === n) return cut(t.index + t[0].length);
+    if(count > n) break;
+  }
+  // 2. Otherwise all leading tokens that carry tones (erhua: 哪儿 → nǎr).
+  let end = 0;
+  for(const t of toks){
+    if(!TONED.test(t[0]) || !syllableCount(t[0])) break;
+    end = t.index + t[0].length;
+  }
+  if(end) return cut(end);
+  return { pinyin: '', meaning: cleanMeaning(rest) };
+}
+
+function parsePaste(text){
+  const rows = [];
+  let pending = null; // a word still waiting for its pinyin or German line
+  for(let line of text.split(/\r?\n/)){
+    line = line.replace(/^\s*(\d+[.)、:]?|[-•*·])\s+/, '').trim();
+    if(!line) continue;
+    const m = line.match(HANZI_RUN);
+    if(m){
+      const hanzi = m[0];
+      const rest = (line.slice(0, m.index) + ' ' + line.slice(m.index + hanzi.length)).trim();
+      const row = Object.assign({ hanzi }, splitPinyin(rest, countHanzi(hanzi)));
+      rows.push(row);
+      pending = row.pinyin && row.meaning ? null : row;
+      continue;
+    }
+    if(!pending) continue;
+    if(!pending.pinyin){
+      const sp = splitPinyin(line, countHanzi(pending.hanzi));
+      if(sp.pinyin){
+        pending.pinyin = sp.pinyin;
+        if(!pending.meaning) pending.meaning = sp.meaning;
+        if(pending.meaning) pending = null;
+        continue;
+      }
+    }
+    if(!pending.meaning){
+      pending.meaning = cleanMeaning(line);
+      pending = null;
+    }
+  }
+  // Bank words fill themselves in and keep the bank's reading.
+  return rows.map(r => {
+    const b = ITEMS.find(it => it.hanzi === r.hanzi);
+    return b ? { hanzi: b.hanzi, pinyin: b.pinyin, meaning: b.meaning, bank: b.id } : r;
+  });
+}
+
+// "ni3 hao3" → "nǐ hǎo". Strings without tone numbers pass through untouched.
+const TONE_MARKS = {
+  a: 'āáǎà', e: 'ēéěè', i: 'īíǐì', o: 'ōóǒò', u: 'ūúǔù', 'ü': 'ǖǘǚǜ',
+};
+function numToMarks(s){
+  return s.replace(/([a-zA-Zü:]+)([1-5])/g, (all, syl, tone) => {
+    syl = syl.replace(/u:|v/g, 'ü').replace(/U:|V/g, 'Ü');
+    const t = Number(tone);
+    if(t === 5) return syl;
+    const lower = syl.toLowerCase();
+    let i = lower.indexOf('a');
+    if(i < 0) i = lower.indexOf('e');
+    if(i < 0) i = lower.indexOf('ou');
+    if(i < 0){
+      for(let k = lower.length - 1; k >= 0; k--) if('iouü'.includes(lower[k])){ i = k; break; }
+    }
+    if(i < 0) return syl;
+    const v = lower[i];
+    let marked = TONE_MARKS[v][t - 1];
+    if(syl[i] !== v) marked = marked.toUpperCase();
+    return syl.slice(0, i) + marked + syl.slice(i + 1);
+  });
 }
 
 // Disclosure for modes/boxes/totals. Collapsed by default; the choice sticks
@@ -1500,7 +2859,7 @@ document.getElementById('detailsBtn').onclick = () => {
   let open = false;
   try{ open = localStorage.getItem(DETAILS_KEY) === '1'; }catch(e){}
   setDetails(open);
-  await loadProgress();
+  await Promise.all([loadProgress(), loadVocab()]);
   buildQueue();
   render();
 })();
